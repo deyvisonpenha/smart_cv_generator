@@ -1,3 +1,5 @@
+import { GapAnalysisItem, CVGenerationResponse, UserAnswer } from '../../types';
+
 const API_BASE_URL = 'http://localhost:8000';
 
 export class ApiClient {
@@ -40,15 +42,16 @@ export class ApiClient {
         return this.request<{ text: string }>('/extract-text', 'POST', formData, null, true);
     }
 
-    static async analyzeGaps(cvText: string, jobDescription: string, apiKey: string | null) {
-        return this.request('/analyze-gaps', 'POST', { cv_text: cvText, job_description: jobDescription }, apiKey);
+    static async analyzeGaps(cvText: string, jobDescription: string, apiKey: string | null): Promise<GapAnalysisItem[]> {
+        return this.request<GapAnalysisItem[]>('/analyze-gaps', 'POST', { cv_text: cvText, job_description: jobDescription }, apiKey);
     }
 
-    static async generateCV(cvText: string, jobDescription: string, userAnswers: any[], apiKey: string | null) {
-        return this.request('/generate-cv', 'POST', {
+    static async generateCV(cvText: string, jobDescription: string, userAnswers: UserAnswer[], apiKey: string | null): Promise<CVGenerationResponse> {
+        return this.request<CVGenerationResponse>('/generate-cv', 'POST', {
             cv_text: cvText,
             job_description: jobDescription,
             user_answers: userAnswers
         }, apiKey);
     }
 }
+
