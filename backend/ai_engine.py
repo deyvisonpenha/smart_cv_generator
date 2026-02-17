@@ -105,11 +105,8 @@ def analyze_gaps(cv_text: str, job_description: str, api_key: Optional[str] = No
     
     raw_output = completion.choices[0].message.content
     
-    # Handle potential markdown code blocks in response
-    if "```json" in raw_output:
-        raw_output = raw_output.split("```json")[1].split("```")[0].strip()
-    elif "```" in raw_output:
-        raw_output = raw_output.split("```")[1].split("```")[0].strip()
+    # Handle potential markdown code blocks or conversational text
+    raw_output = extract_json_content(raw_output)
 
     try:
         parsed = GapAnalysisResponse.model_validate_json(raw_output)
@@ -171,15 +168,36 @@ def generate_cv(cv_text: str, job_description: str, user_answers: List[dict], ap
     
     raw_output = completion.choices[0].message.content
 
-    # Handle potential markdown code blocks in response
-    if "```json" in raw_output:
-        raw_output = raw_output.split("```json")[1].split("```")[0].strip()
-    elif "```" in raw_output:
-        raw_output = raw_output.split("```")[1].split("```")[0].strip()
+    # Handle potential markdown code blocks or conversational text
+    raw_output = extract_json_content(raw_output)
 
     try:
         parsed = CVGenerationResponse.model_validate_json(raw_output)
     except Exception as e:
         raise ValueError(f"Failed to parse AI response: {str(e)}. Raw output: {raw_output}")
     
+
     return parsed
+
+def extract_json_content(text: str) -> str:
+    """
+    Robustly extracts a JSON object from text, handling markdown blocks and preambles.
+    Criteria:
+    1. If markdown block exists, take content inside.
+    2. Find first '{' and last '}' to isolate JSON object.
+    3. Return valid JSON string or original text if not found.
+    """
+    text = text.strip()
+    
+    if "```json" in text:
+        text = text.split("```json")[1].split("```")[0].strip()
+    elif "```" in text:
+        text = text.split("```")[1].split("```")[0].strip()
+        
+    start_idx = text.find('{')
+    end_idx = text.rfind('}')
+    
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        return text[start_idx : end_idx + 1]
+    
+    return text
