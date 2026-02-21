@@ -29,8 +29,8 @@ function StepIndicator({ stage }: { stage: AppStage }) {
                         )}
                         <div className="flex items-center gap-1.5">
                             <div className={`w-2 h-2 rounded-full transition-all duration-500 ${active ? 'bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.8)]' :
-                                    done ? 'bg-indigo-600' :
-                                        'bg-white/15'
+                                done ? 'bg-indigo-600' :
+                                    'bg-white/15'
                                 }`} />
                             <span className={`text-xs font-medium transition-colors duration-300 ${active ? 'text-white' : done ? 'text-indigo-400' : 'text-white/30'
                                 }`}>
@@ -132,7 +132,7 @@ export default function Home() {
         <main className="min-h-screen">
             {/* Header */}
             <header className="fixed top-0 inset-x-0 z-50 h-16 glass border-b border-white/5">
-                <div className="max-w-5xl mx-auto px-4 h-full flex items-center justify-between">
+                <div className="max-w-5xl mx-auto px-6 sm:px-10 h-full flex items-center justify-between">
                     {/* Logo */}
                     <div className="flex items-center gap-3 group cursor-default select-none">
                         <div className="relative w-8 h-8">
@@ -167,13 +167,13 @@ export default function Home() {
             </header>
 
             {/* Content */}
-            <div className="max-w-5xl mx-auto px-4 pt-28 pb-16 min-h-screen">
+            <div className="max-w-5xl mx-auto px-6 sm:px-10 pt-28 pb-16 min-h-screen">
                 {renderStage()}
             </div>
 
             {/* Footer */}
             <footer className="border-t border-white/5 py-6">
-                <div className="max-w-5xl mx-auto px-4 flex items-center justify-center gap-2 text-xs text-white/20">
+                <div className="max-w-5xl mx-auto px-6 sm:px-10 flex items-center justify-center gap-2 text-xs text-white/20">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/60" />
                     <span>Stateless &amp; private — your data never leaves your session</span>
                 </div>
