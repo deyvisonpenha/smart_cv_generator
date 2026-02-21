@@ -26,7 +26,7 @@ export function PreviewScreen() {
         const element = cvRef.current;
 
         const opt = {
-            margin: [10, 10, 10, 10] as [number, number, number, number], // top, left, bottom, right in mm
+            margin: [5, 5, 5, 5] as [number, number, number, number], // top, left, bottom, right in mm
             filename: 'optimized_cv.pdf',
             image: { type: 'jpeg' as const, quality: 0.98 },
             html2canvas: {
@@ -134,9 +134,9 @@ export function PreviewScreen() {
                     <div className="lg:col-span-1 space-y-4">
                         <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900">
                             <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">Optimization Report</h3>
-                            <p className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">
-                                {generatedCV.optimization_report}
-                            </p>
+                            <div className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed prose prose-sm prose-blue dark:prose-invert max-w-none">
+                                <ReactMarkdown>{generatedCV.optimization_report}</ReactMarkdown>
+                            </div>
                         </Card>
                     </div>
 

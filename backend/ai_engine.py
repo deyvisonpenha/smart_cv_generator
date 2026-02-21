@@ -125,31 +125,117 @@ def generate_cv(cv_text: str, job_description: str, user_answers: List[dict], ap
     answers_text = "\n".join([f"Q: {ans['question']}\nA: {ans['answer']}" for ans in user_answers])
     
     prompt = f"""
-    You are an expert Resume Writer.
-    
-    Return ONLY valid JSON in this format:
-    {{
-      "markdown_cv": "...",
-      "optimization_report": "..."
-    }}
+You are a senior technical recruiter and resume strategist with experience across multiple domains 
+(Backend, Frontend, AI/ML, Data, DevOps, Product Engineering, Infrastructure, Startup roles).
 
-    Rewrite the following CV to better match the Job Description, incorporating the new information provided by the user's answers.
-    
-    Job Description:
-    {job_description}
-    
-    Original CV:
-    {cv_text}
-    
-    User Answers to Missing Skills/Gaps:
-    {answers_text}
-    
-    Requirements:
-    1. Do NOT invent information. Only use facts from the CV and User Answers.
-    2. Use professional Markdown formatting.
-    3. Use action verbs and quantify impact where possible.
-    4. Provide a brief report on what was optimized.
-    """
+Your task is NOT to simply rewrite the CV.
+Your task is to strategically reposition the candidate to maximize alignment with the specific Job Description.
+
+Return ONLY valid JSON in this format:
+{{
+  "markdown_cv": "...",
+  "optimization_report": "..."
+}}
+
+========================
+STEP 1 — ROLE DIAGNOSIS
+========================
+
+Before rewriting the CV, internally analyze the Job Description and identify:
+
+- The primary role type (e.g., Backend, AI Engineer, Full-Stack, Data, DevOps, etc.)
+- The top 8 most important hard requirements
+- The top 5 most important soft signals (ownership, autonomy, collaboration, etc.)
+- Seniority level expectations
+- What the hiring manager is most likely scanning for
+
+Do NOT output this analysis explicitly.
+Use it to guide rewriting decisions.
+
+========================
+INPUT DATA
+========================
+
+Job Description:
+{job_description}
+
+Original CV:
+{cv_text}
+
+User Answers to Missing Skills/Gaps:
+{answers_text}
+
+========================
+STRICT RULES
+========================
+
+1. Do NOT invent any technologies, metrics, responsibilities, or experience.
+2. You may reframe, reorganize, and reprioritize existing experience.
+3. You may remove or de-emphasize less relevant details.
+4. If a required skill is missing, do NOT imply proficiency.
+5. Preserve factual integrity at all times.
+
+========================
+STRATEGIC OPTIMIZATION RULES
+========================
+
+You MUST:
+
+• Rewrite the SUMMARY to clearly align with the primary role focus inferred from the Job Description.
+• Emphasize experiences that directly match the highest-priority requirements.
+• Reorder bullet points within each role so the most relevant contributions appear first.
+• Use domain-specific language appropriate to the role type.
+• Demonstrate impact (performance, scale, reliability, revenue, automation, research depth, etc.) where supported by facts.
+• Highlight ownership, autonomy, and production experience when applicable.
+• Reduce emphasis on unrelated technologies or responsibilities.
+
+If the Job Description is:
+- Backend-focused → emphasize services, APIs, data modeling, performance, infrastructure.
+- AI/ML-focused → emphasize modeling, experimentation, evaluation, deployment, data pipelines.
+- Frontend-focused → emphasize UI architecture, performance, design systems.
+- DevOps-focused → emphasize infrastructure, CI/CD, reliability, observability.
+- Product/Startup-focused → emphasize cross-functional collaboration and ownership.
+
+Adapt dynamically based on the JD — do not assume a specific domain.
+
+========================
+BULLET DEPTH REQUIREMENTS
+========================
+
+Each bullet point must include:
+
+• The technical action performed
+• The system or product context
+• The technologies used (when relevant)
+• The outcome or impact (if factually supported)
+
+Avoid vague bullets such as:
+- "Led backend development"
+- "Improved performance"
+- "Worked on APIs"
+
+Instead, provide sufficient technical depth so a technical recruiter can understand:
+- What kind of system it was
+- Your level of ownership
+- The complexity involved
+- The technical stack interaction
+
+Each role should contain 3–5 substantial bullet points.
+Bullets should be 1–3 lines long, not single short phrases.
+
+========================
+OPTIMIZATION REPORT
+========================
+
+In the optimization_report, explicitly explain:
+
+- What type of role was inferred.
+- Which elements were emphasized and why.
+- What was de-emphasized.
+- Any limitations due to missing required skills.
+- How the positioning strategy changed relative to the original CV.
+"""
+
 
     try:
         completion = client.chat.completions.create(

@@ -20,7 +20,7 @@ export default function Home() {
         setGaps
     } = useAppStore();
 
-    const { getKey } = useVault();
+    const { getKey, isLocked } = useVault();
 
     // Orchestrator Effect for Gap Analysis
     useEffect(() => {
@@ -28,6 +28,16 @@ export default function Home() {
             if (stage === 'ANALYZING') {
                 try {
                     const apiKey = getKey();
+
+                    if (!apiKey) {
+                        if (isLocked) {
+                            throw new Error("Vault is locked. Please unlock to proceed.");
+                        } else {
+                            throw new Error("API Key not found. Please setup your vault.");
+                        }
+                    }
+
+                    console.log("Using API Key:", apiKey ? "***" : "null");
                     const gaps = await ApiClient.analyzeGaps(cvText, jobDescription, apiKey);
                     setGaps(gaps);
                     setStage('INTERVIEW');
@@ -39,7 +49,7 @@ export default function Home() {
         };
 
         runAnalysis();
-    }, [stage, cvText, jobDescription, getKey, setStage, setGaps, setError]);
+    }, [stage, cvText, jobDescription, getKey, isLocked, setStage, setGaps, setError]);
 
     const renderStage = () => {
         switch (stage) {

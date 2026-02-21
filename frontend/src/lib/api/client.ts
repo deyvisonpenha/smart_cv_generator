@@ -20,6 +20,9 @@ export class ApiClient {
             headers['Content-Type'] = 'application/json';
         }
 
+        console.log("API KEY:", apiKey);
+        console.log("HEADERS:", headers);
+
         const config: RequestInit = {
             method,
             headers,

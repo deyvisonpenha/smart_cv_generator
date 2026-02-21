@@ -7,12 +7,17 @@ import { Lock, Unlock, Key, Trash2, ShieldCheck, ShieldAlert, X } from 'lucide-r
 import { cn } from '@/components/ui/card';
 
 export function VaultSettings() {
-    const { isLocked, hasVault, saveKey, unlockVault, clearVault, error } = useVault();
+    const { isLocked, hasVault, saveKey, unlockVault, clearVault, error, init } = useVault();
     const [password, setPassword] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [isSetupMode, setIsSetupMode] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Initialize vault state
+    useEffect(() => {
+        init();
+    }, [init]);
 
     // Close on click outside
     useEffect(() => {
