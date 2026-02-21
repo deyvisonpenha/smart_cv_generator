@@ -171,7 +171,7 @@ export function UploadScreen() {
                             id="jd"
                             rows={7}
                             className={cn(
-                                'w-full rounded-2xl glass px-4 py-3 text-sm text-white placeholder:text-white/25 resize-none',
+                                'w-full rounded-2xl glass px-4 py-3 text-sm !text-white placeholder:text-white/25 resize-none',
                                 'outline-none transition-all duration-300',
                                 'focus:border-indigo-500/60 focus:bg-indigo-500/5 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]',
                                 'border',

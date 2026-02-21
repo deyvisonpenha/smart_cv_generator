@@ -64,7 +64,7 @@ def analyze_gaps(cv_text: str, job_description: str, api_key: Optional[str] = No
     model = get_model_name(client)
     
     prompt = f"""
-    You are an expert Technical Recruiter.
+    You are an expert senior technical recruiter conducting a targeted gap analysis.
 
     Return ONLY valid JSON in this format:
     {{
@@ -77,12 +77,27 @@ def analyze_gaps(cv_text: str, job_description: str, api_key: Optional[str] = No
       ]
     }}
 
-    Compare the following CV against the Job Description.
-    Identify missing hard skills, soft skills, or experiences that are required by the job but not explicitly stated in the CV. That is important that we can track the correct experience with the question, for example, if is identified that the candidate don't have the experience with a specific technology, we can ask the candidate to clarify if they have experience with a similar technology and what company they worked with.
-    
+    Compare the CV against the Job Description and identify gaps — skills, experiences, or signals that the
+    JD requires but the CV does not clearly demonstrate.
+
+    For each gap, write ONE targeted question designed to extract RICH, SPECIFIC context from the candidate
+    so that the answer can later be used to write a detailed, concrete CV bullet point.
+
+    Each question MUST ask for:
+    - The specific technology, methodology, or skill in question
+    - The company or project context where it was applied
+    - The candidate's level of ownership / scope of impact
+    - Quantified results or measurable outcomes if applicable
+
+    BAD question example: "Do you have experience with Kubernetes?"
+    GOOD question example: "Have you worked with Kubernetes in a production environment? If so, describe the infrastructure scale (number of nodes/services), your level of ownership (did you configure, maintain, or just consume it?), what company this was at, and any reliability or performance improvements you achieved."
+
+    Generate between 4 and 7 questions. Focus only on gaps that materially affect the candidate's alignment
+    with the role — do not ask about things already clearly demonstrated in the CV.
+
     Job Description:
     {job_description}
-    
+
     CV Text:
     {cv_text}
     """
@@ -122,14 +137,17 @@ def generate_cv(cv_text: str, job_description: str, user_answers: List[dict], ap
     client = get_openai_client(api_key)
     model = get_model_name(client)
     
-    answers_text = "\n".join([f"Q: {ans['question']}\nA: {ans['answer']}" for ans in user_answers])
+    answers_text = "\n".join([
+        f"--- ANSWER {i+1} ---\nQ: {ans['question']}\nA: {ans['answer']}\n"
+        for i, ans in enumerate(user_answers)
+    ])
     
     prompt = f"""
-You are a senior technical recruiter and resume strategist with experience across multiple domains 
+You are a senior technical recruiter and resume strategist with experience across multiple domains
 (Backend, Frontend, AI/ML, Data, DevOps, Product Engineering, Infrastructure, Startup roles).
 
-Your task is NOT to simply rewrite the CV.
-Your task is to strategically reposition the candidate to maximize alignment with the specific Job Description.
+Your task is to produce an optimized CV that maximally aligns the candidate with the Job Description
+by strategically integrating their original experience WITH the new context they provided in the Q&A answers.
 
 Return ONLY valid JSON in this format:
 {{
@@ -141,16 +159,14 @@ Return ONLY valid JSON in this format:
 STEP 1 — ROLE DIAGNOSIS
 ========================
 
-Before rewriting the CV, internally analyze the Job Description and identify:
-
-- The primary role type (e.g., Backend, AI Engineer, Full-Stack, Data, DevOps, etc.)
-- The top 8 most important hard requirements
-- The top 5 most important soft signals (ownership, autonomy, collaboration, etc.)
+Internally analyze the Job Description and identify:
+- The primary role type (Backend, AI Engineer, Full-Stack, Data, DevOps, etc.)
+- The top 8 most critical hard requirements
+- The top 5 soft signals (ownership, autonomy, scale, collaboration, etc.)
 - Seniority level expectations
-- What the hiring manager is most likely scanning for
+- What a technical hiring manager scans for in the first 30 seconds
 
-Do NOT output this analysis explicitly.
-Use it to guide rewriting decisions.
+Do NOT output this analysis. Use it to guide every rewriting decision.
 
 ========================
 INPUT DATA
@@ -162,17 +178,54 @@ Job Description:
 Original CV:
 {cv_text}
 
-User Answers to Missing Skills/Gaps:
+Candidate Q&A — Answers to Gap Analysis Questions:
 {answers_text}
+
+========================
+STEP 2 — MANDATORY ANSWER PROCESSING (do this before writing a single bullet)
+========================
+Before generating the CV, go through EACH answer above and:
+1. Extract every concrete fact: technology names, project names, team sizes, metrics, timelines, outcomes.
+2. Map each fact to the most relevant role or bullet in the original CV.
+3. Mark that bullet as MUST EXPAND — it cannot be shorter than the original after your changes.
+
+Only after completing this mapping should you begin writing the optimized CV.
+If an answer is vague or empty ("N/A", "I don't know", "Not applicable"), skip it.
+If an answer contains ANY concrete detail, that detail MUST appear in the final CV.
+
+========================
+CRITICAL: HOW TO USE THE CANDIDATE ANSWERS
+========================
+
+The Q&A answers above are the MOST IMPORTANT input for this task.
+
+For each answer that contains new information (a technology used, a project detail, a metric, a responsibility):
+
+1. FIND the most relevant existing bullet point in the original CV, OR identify the right role/section to add it to.
+2. EXPAND that bullet point by weaving in the specific details from the answer:
+   - Company or project name mentioned
+   - Technology or methodology mentioned
+   - Scale, scope, or team size mentioned
+   - Measurable results or outcomes mentioned
+3. If no existing bullet covers it, CREATE a new bullet point in the appropriate role.
+4. The expanded bullet must read as a natural, professional achievement statement — not a copy-paste of the answer.
+5. NEVER truncate or shorten existing bullets that contain valuable information.
+   Adding detail is always better than removing it.
+
+Example of a BAD transformation (shortening):
+  Original: "Designed and deployed a microservices-based payment processing system handling 50k transactions/day using Node.js and Kafka"
+  Answer: "I also used Redis for caching"
+  BAD result: "Built payment systems with caching"
+  GOOD result: "Designed and deployed a microservices-based payment processing system handling 50k transactions/day using Node.js, Kafka, and Redis for session and response caching, reducing average API latency by ~40%"
 
 ========================
 STRICT RULES
 ========================
 
-1. Do NOT invent any technologies, metrics, responsibilities, or experience.
+1. Do NOT invent technologies, metrics, responsibilities, or experience not supported by the CV or answers.
 2. You may reframe, reorganize, and reprioritize existing experience.
-3. You may remove or de-emphasize less relevant details.
-4. If a required skill is missing, do NOT imply proficiency.
+3. Do NOT remove detail — only add or restructure.
+4. If a required skill is missing and the candidate did not mention it in answers, do NOT imply proficiency.
 5. Preserve factual integrity at all times.
 
 ========================
@@ -180,60 +233,61 @@ STRATEGIC OPTIMIZATION RULES
 ========================
 
 You MUST:
+• Rewrite the SUMMARY to clearly position the candidate for the inferred role type.
+• Lead each role's bullets with the achievements most relevant to the JD.
+• Use domain-specific vocabulary aligned with the role type.
+• Demonstrate impact (scale, reliability, performance, revenue, automation) wherever facts support it.
+• Highlight ownership and production experience.
 
-• Rewrite the SUMMARY to clearly align with the primary role focus inferred from the Job Description.
-• Emphasize experiences that directly match the highest-priority requirements.
-• Reorder bullet points within each role so the most relevant contributions appear first.
-• Use domain-specific language appropriate to the role type.
-• Demonstrate impact (performance, scale, reliability, revenue, automation, research depth, etc.) where supported by facts.
-• Highlight ownership, autonomy, and production experience when applicable.
-• Reduce emphasis on unrelated technologies or responsibilities.
-
-If the Job Description is:
-- Backend-focused → emphasize services, APIs, data modeling, performance, infrastructure.
-- AI/ML-focused → emphasize modeling, experimentation, evaluation, deployment, data pipelines.
-- Frontend-focused → emphasize UI architecture, performance, design systems.
-- DevOps-focused → emphasize infrastructure, CI/CD, reliability, observability.
-- Product/Startup-focused → emphasize cross-functional collaboration and ownership.
-
-Adapt dynamically based on the JD — do not assume a specific domain.
+Role-type adaptation:
+- Backend → services, APIs, data modeling, throughput, infrastructure
+- AI/ML → modeling, experimentation, evaluation, deployment, data pipelines
+- Frontend → UI architecture, performance, design systems, accessibility
+- DevOps → infrastructure, CI/CD, reliability, observability, SLOs
+- Product/Startup → cross-functional ownership, shipping velocity, business impact
 
 ========================
 BULLET DEPTH REQUIREMENTS
 ========================
 
-Each bullet point must include:
+Every bullet point MUST contain:
+• The technical action or decision made
+• The system, product, or business context
+• Technologies used (when relevant)
+• Outcome or impact (quantified when facts support it)
 
-• The technical action performed
-• The system or product context
-• The technologies used (when relevant)
-• The outcome or impact (if factually supported)
+Bullets should be 1–3 lines — substantive, not telegraphic.
+Each role section should have 3–6 bullets after enrichment with user answers.
 
-Avoid vague bullets such as:
+Avoid:
 - "Led backend development"
-- "Improved performance"
+- "Improved system performance"
 - "Worked on APIs"
 
-Instead, provide sufficient technical depth so a technical recruiter can understand:
-- What kind of system it was
-- Your level of ownership
-- The complexity involved
-- The technical stack interaction
-
-Each role should contain 3–5 substantial bullet points.
-Bullets should be 1–3 lines long, not single short phrases.
+Aim for:
+- "Architected a REST API gateway in FastAPI serving 200k daily requests, adding rate limiting and JWT-based auth to enforce tenant isolation across 15 enterprise clients"
 
 ========================
 OPTIMIZATION REPORT
 ========================
 
-In the optimization_report, explicitly explain:
+In the optimization_report field, output a concise Markdown-formatted summary covering:
+- Role type inferred
+- Which answers were used and how they changed the CV
+- Which sections were expanded vs. de-emphasized
+- Any gaps that could not be addressed due to missing information
+- Overall positioning shift vs. the original CV
 
-- What type of role was inferred.
-- Which elements were emphasized and why.
-- What was de-emphasized.
-- Any limitations due to missing required skills.
-- How the positioning strategy changed relative to the original CV.
+========================
+FINAL SELF-CHECK (apply before outputting)
+========================
+Before returning your response, verify:
+- [ ] Every bullet in the output is AT LEAST as long as the corresponding original bullet.
+- [ ] Every concrete fact from the Q&A answers appears somewhere in the CV.
+- [ ] No bullet is a generic rephrasing of a more specific original (e.g. "Built APIs" replacing a detailed original).
+- [ ] The summary names the role type and 2–3 specific strengths aligned to the JD.
+
+If any check fails, rewrite the offending bullet before outputting.
 """
 
 
@@ -244,7 +298,8 @@ In the optimization_report, explicitly explain:
                 {"role": "system", "content": "You are an expert resume writer."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0,
+            temperature=0.1,        # Lower = more literal, less creative compression
+            response_format={"type": "json_object"},
         )
     except APIConnectionError as e:
         base_url = client.base_url
