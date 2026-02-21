@@ -1,20 +1,29 @@
+'use client';
 import { useRef, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+
+function cn(...classes: (string | undefined | false)[]) {
+    return classes.filter(Boolean).join(' ');
+}
 
 export function PreviewScreen() {
     const { generatedCV, setStage, reset } = useAppStore();
     const cvRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
+    const [reportOpen, setReportOpen] = useState(true);
 
     if (!generatedCV) {
         return (
-            <div className="text-center p-10">
-                <p>No CV generated yet.</p>
-                <Button onClick={() => setStage('UPLOAD')} className="mt-4">Start Over</Button>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 animate-slide-up">
+                <p className="text-white/40">No CV generated yet.</p>
+                <button
+                    onClick={() => setStage('UPLOAD')}
+                    className="btn-primary text-white px-6 py-2.5 rounded-xl text-sm font-medium"
+                >
+                    Start Over
+                </button>
             </div>
         );
     }
@@ -22,45 +31,27 @@ export function PreviewScreen() {
     const handleExport = async () => {
         if (!cvRef.current) return;
         setIsExporting(true);
-
         const element = cvRef.current;
-
         const opt = {
-            margin: [5, 5, 5, 5] as [number, number, number, number], // top, left, bottom, right in mm
+            margin: [5, 5, 5, 5] as [number, number, number, number],
             filename: 'optimized_cv.pdf',
             image: { type: 'jpeg' as const, quality: 0.98 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                scrollY: 0,
-                windowWidth: 794, // A4 width in px at 96dpi
-            },
-            jsPDF: {
-                unit: 'mm',
-                format: 'a4',
-                orientation: 'portrait' as const,
-            },
-            // Tell html2pdf where it's allowed to break pages
+            html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 794 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
             pagebreak: {
                 mode: ['avoid-all', 'css', 'legacy'],
                 before: '.page-break-before',
                 after: '.page-break-after',
-                avoid: [
-                    'h1', 'h2', 'h3', 'h4',
-                    'li',
-                    'p',
-                    '.avoid-break',
-                ],
+                avoid: ['h1', 'h2', 'h3', 'h4', 'li', 'p', '.avoid-break'],
             },
         };
-
         try {
             // @ts-ignore
             const html2pdf = (await import('html2pdf.js')).default;
             await html2pdf().set(opt).from(element).save();
         } catch (e) {
-            console.error("PDF Export failed", e);
-            alert("Failed to export PDF. Please try again.");
+            console.error('PDF Export failed', e);
+            alert('Failed to export PDF. Please try again.');
         } finally {
             setIsExporting(false);
         }
@@ -68,105 +59,100 @@ export function PreviewScreen() {
 
     return (
         <>
-            {/*
-                Inject global styles for the CV content so html2pdf picks them up.
-                These rules prevent elements from being sliced across page boundaries.
-            */}
+            {/* PDF page-break styles */}
             <style>{`
-                .cv-content h1,
-                .cv-content h2,
-                .cv-content h3,
-                .cv-content h4 {
-                    page-break-after: avoid;
-                    break-after: avoid;
+                .cv-content h1, .cv-content h2, .cv-content h3, .cv-content h4 {
+                    page-break-after: avoid; break-after: avoid;
                 }
-
-                .cv-content p,
-                .cv-content li,
-                .cv-content ul,
-                .cv-content ol {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
+                .cv-content p, .cv-content li, .cv-content ul, .cv-content ol {
+                    page-break-inside: avoid; break-inside: avoid;
                 }
-
-                /* Keep a heading together with the content that follows it */
-                .cv-content h2 + *,
-                .cv-content h3 + * {
-                    page-break-before: avoid;
-                    break-before: avoid;
+                .cv-content h2 + *, .cv-content h3 + * {
+                    page-break-before: avoid; break-before: avoid;
                 }
-
-                /* Prevent orphaned list items */
-                .cv-content ul,
-                .cv-content ol {
-                    page-break-before: avoid;
-                    break-before: avoid;
+                .cv-content ul, .cv-content ol {
+                    page-break-before: avoid; break-before: avoid;
                 }
-
-                /* Each top-level section stays as intact as possible */
-                .cv-content > section,
-                .cv-content > div {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
+                .cv-content > section, .cv-content > div {
+                    page-break-inside: avoid; break-inside: avoid;
                 }
             `}</style>
 
-            <div className="max-w-4xl mx-auto space-y-6 pb-20">
-                <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                        <h2 className="text-2xl font-bold">Your Optimized CV</h2>
-                        <p className="text-sm text-zinc-500">Ready for download.</p>
+            <div className="max-w-5xl mx-auto space-y-6 animate-slide-up">
+                {/* Sticky action bar */}
+                <div className="sticky top-20 z-20 glass rounded-2xl px-5 py-3 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-white">Your Optimized CV</h2>
+                        <p className="text-xs text-white/30">AI-tailored for this role</p>
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={reset}>
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Start New
-                        </Button>
-                        <Button onClick={handleExport} disabled={isExporting}>
-                            <Download className="w-4 h-4 mr-2" />
-                            {isExporting ? 'Exporting...' : 'Download PDF'}
-                        </Button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={reset}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white/50 border border-white/8 hover:text-white hover:border-white/20 transition-all"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            New
+                        </button>
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            className="btn-primary text-white flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+                        >
+                            <Download className="w-3.5 h-3.5" />
+                            {isExporting ? 'Exporting…' : 'Download PDF'}
+                        </button>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Optimization Report Sidebar */}
-                    <div className="lg:col-span-1 space-y-4">
-                        <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900">
-                            <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">Optimization Report</h3>
-                            <div className="text-sm text-blue-700 dark:text-blue-400 leading-relaxed prose prose-sm prose-blue dark:prose-invert max-w-none">
-                                <ReactMarkdown>{generatedCV.optimization_report}</ReactMarkdown>
-                            </div>
-                        </Card>
+                    {/* Optimization Report */}
+                    <div className="lg:col-span-1">
+                        <div className="glass rounded-2xl overflow-hidden">
+                            <button
+                                className="w-full flex items-center justify-between px-5 py-4 border-b border-white/5 hover:bg-white/3 transition-colors"
+                                onClick={() => setReportOpen(v => !v)}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                                    <span className="text-sm font-semibold text-white">Optimization Report</span>
+                                </div>
+                                {reportOpen ? (
+                                    <ChevronUp className="w-4 h-4 text-white/30" />
+                                ) : (
+                                    <ChevronDown className="w-4 h-4 text-white/30" />
+                                )}
+                            </button>
+                            {reportOpen && (
+                                <div className="px-5 py-4 text-sm text-white/60 leading-relaxed prose prose-sm prose-invert max-w-none [&_strong]:text-indigo-300 [&_h3]:text-white/80 [&_h3]:text-sm">
+                                    <ReactMarkdown>{generatedCV.optimization_report}</ReactMarkdown>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {/* CV Preview Area */}
+                    {/* CV Preview */}
                     <div className="lg:col-span-2">
-                        <div className="border border-zinc-200 shadow-lg rounded-sm overflow-hidden bg-white">
-                            <div className="w-full overflow-x-auto">
+                        <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/40 ring-1 ring-white/8">
+                            {/* Document header bar */}
+                            <div className="bg-white/5 border-b border-white/8 px-5 py-2 flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/60" />
+                                <span className="ml-2 text-xs text-white/20">optimized_cv.pdf</span>
+                            </div>
+                            <div className="overflow-x-auto bg-white">
                                 <div
                                     ref={cvRef}
-                                    /*
-                                     * cv-content   → targets our page-break CSS rules above
-                                     * prose         → ReactMarkdown styling
-                                     *
-                                     * Width is fixed to A4 (210mm ≈ 794px at 96dpi) so the
-                                     * html2canvas snapshot matches the paper width exactly.
-                                     * Padding of 20mm on each side leaves 170mm of text width,
-                                     * matching a standard A4 document margin.
-                                     */
-                                    className="cv-content bg-white text-zinc-900 prose prose-sm prose-zinc max-w-none print:shadow-none"
+                                    className="cv-content bg-white text-zinc-900 prose prose-sm prose-zinc max-w-none"
                                     style={{
                                         fontFamily: 'Inter, sans-serif',
-                                        width: '794px',          // A4 at 96 dpi
-                                        padding: '20mm 20mm',    // standard document margins
+                                        width: '794px',
+                                        padding: '20mm 20mm',
                                         boxSizing: 'border-box',
                                         margin: '0 auto',
                                     }}
                                 >
-                                    <ReactMarkdown>
-                                        {generatedCV.markdown_cv}
-                                    </ReactMarkdown>
+                                    <ReactMarkdown>{generatedCV.markdown_cv}</ReactMarkdown>
                                 </div>
                             </div>
                         </div>

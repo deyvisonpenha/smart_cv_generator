@@ -1,11 +1,13 @@
+'use client';
 import { useState, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { ApiClient } from '@/lib/api/client';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { UploadCloud, FileText, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
+import { UploadCloud, FileText, Loader2, ArrowRight, Sparkles } from 'lucide-react';
 import { useVault } from '@/hooks/useVault';
-import { cn } from '@/components/ui/card';
+
+function cn(...classes: (string | undefined | false)[]) {
+    return classes.filter(Boolean).join(' ');
+}
 
 export function UploadScreen() {
     const { setStage, setCVText, setJobDescription, setError } = useAppStore();
@@ -20,12 +22,10 @@ export function UploadScreen() {
             setError('Please upload a PDF file.');
             return;
         }
-
         try {
             setError(null);
             setIsExtracting(true);
             setFileName(file.name);
-
             const { text } = await ApiClient.extractText(file);
             setCVText(text);
             setIsExtracting(false);
@@ -39,9 +39,7 @@ export function UploadScreen() {
     const onDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            handleFile(e.dataTransfer.files[0]);
-        }
+        if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
     }, []);
 
     const onDragOver = useCallback((e: React.DragEvent) => {
@@ -54,54 +52,54 @@ export function UploadScreen() {
         setIsDragging(false);
     }, []);
 
-    const handleStartAnalysis = async () => {
-        if (!fileName) {
-            setError("Please upload a CV first.");
-            return;
-        }
-        if (!localJobDescription.trim()) {
-            setError("Please enter a job description.");
-            return;
-        }
-
+    const handleStartAnalysis = () => {
+        if (!fileName) { setError('Please upload a CV first.'); return; }
+        if (!localJobDescription.trim()) { setError('Please enter a job description.'); return; }
         setJobDescription(localJobDescription);
-
-        try {
-            setStage("ANALYZING");
-        } catch (e) {
-            setError("Failed to start analysis.");
-            setStage("UPLOAD");
-        }
+        setStage('ANALYZING');
     };
 
-    return (
-        <div className="max-w-xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+    const canSubmit = !!fileName && !!localJobDescription.trim() && !isExtracting;
 
-            <div className="text-center space-y-3">
-                <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-                    Optimize your CV
+    return (
+        <div className="max-w-2xl mx-auto animate-slide-up">
+            {/* Hero */}
+            <div className="text-center mb-12 space-y-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 glass rounded-full text-xs font-medium text-indigo-300 mb-4">
+                    <Sparkles className="w-3 h-3" />
+                    AI-powered CV optimization
+                </div>
+                <h1 className="text-5xl font-extrabold leading-tight tracking-tight">
+                    <span className="text-white">Land your </span>
+                    <span className="gradient-text">dream role</span>
                 </h1>
-                <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-                    Upload your resume and the job description to get AI-powered insights and tailoring.
+                <p className="text-base text-white/50 max-w-md mx-auto leading-relaxed">
+                    Upload your CV, paste the job description, and our AI will identify gaps, ask smart questions, and generate a tailored resume.
                 </p>
             </div>
 
-            <div className="grid gap-8">
-                {/* CV Upload Area */}
-                <div className="space-y-3">
+            <div className="space-y-5">
+                {/* CV Upload */}
+                <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                        <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Resume / CV</label>
-                        {fileName && <span className="text-xs text-green-600 font-medium flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>Ready</span>}
+                        <label className="text-sm font-semibold text-white/80">Resume / CV</label>
+                        {fileName && (
+                            <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                Extracted
+                            </span>
+                        )}
                     </div>
 
                     <div
                         className={cn(
-                            "relative group cursor-pointer transition-all duration-300 ease-out",
-                            "border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center text-center gap-4",
-                            "bg-white dark:bg-zinc-900/50",
+                            'relative group cursor-pointer rounded-2xl p-10 flex flex-col items-center gap-4 text-center transition-all duration-300',
+                            'glass border-2 border-dashed',
                             isDragging
-                                ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 scale-[1.01] shadow-xl shadow-blue-500/10"
-                                : "border-zinc-200 dark:border-zinc-800 hover:border-blue-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:shadow-md"
+                                ? 'border-indigo-500 bg-indigo-500/10 glow-accent scale-[1.01]'
+                                : fileName
+                                    ? 'border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-400/60'
+                                    : 'border-white/10 hover:border-indigo-500/50 hover:bg-indigo-500/5'
                         )}
                         onDrop={onDrop}
                         onDragOver={onDragOver}
@@ -117,77 +115,98 @@ export function UploadScreen() {
                         />
 
                         <div className={cn(
-                            "w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm",
-                            isDragging ? "bg-blue-100 text-blue-600" : "bg-zinc-100 text-zinc-500 group-hover:bg-white group-hover:text-blue-600 group-hover:shadow-md dark:bg-zinc-800 dark:text-zinc-400"
+                            'w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300',
+                            isDragging ? 'bg-indigo-500/20 text-indigo-300'
+                                : fileName ? 'bg-emerald-500/15 text-emerald-400'
+                                    : 'bg-white/5 text-white/40 group-hover:bg-indigo-500/15 group-hover:text-indigo-300'
                         )}>
                             {isExtracting ? (
-                                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                                <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
                             ) : fileName ? (
-                                <FileText className="w-8 h-8" />
+                                <FileText className="w-7 h-7" />
                             ) : (
-                                <UploadCloud className="w-8 h-8" />
+                                <UploadCloud className="w-7 h-7" />
                             )}
                         </div>
 
                         <div className="space-y-1">
                             {isExtracting ? (
-                                <div className="space-y-1">
-                                    <p className="font-semibold text-zinc-900 dark:text-zinc-100">Extracting content...</p>
-                                    <p className="text-xs text-zinc-500">Please wait while we parse your PDF.</p>
-                                </div>
+                                <>
+                                    <p className="font-semibold text-white">Extracting content…</p>
+                                    <p className="text-sm text-white/40">Reading your PDF</p>
+                                </>
                             ) : fileName ? (
-                                <div className="space-y-1">
-                                    <p className="font-semibold text-zinc-900 dark:text-zinc-100 break-all">{fileName}</p>
-                                    <p className="text-xs text-zinc-400 group-hover:text-blue-500 transition-colors">Click to replace</p>
-                                </div>
+                                <>
+                                    <p className="font-semibold text-white truncate max-w-xs">{fileName}</p>
+                                    <p className="text-sm text-white/40 group-hover:text-indigo-400 transition-colors">
+                                        Click to replace
+                                    </p>
+                                </>
                             ) : (
                                 <>
-                                    <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                                        <span className="text-blue-600 font-semibold group-hover:underline">Click to upload</span> or drag and drop
+                                    <p className="font-medium text-white">
+                                        <span className="text-indigo-400 group-hover:text-indigo-300 transition-colors">Click to upload</span> or drag &amp; drop
                                     </p>
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                        PDF only (max 10MB)
-                                    </p>
+                                    <p className="text-sm text-white/30">PDF only · max 10 MB</p>
                                 </>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Job Description Area */}
-                <div className="space-y-3">
+                {/* Job Description */}
+                <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                        <label htmlFor="jd" className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            Job Description
-                        </label>
-                        <span className="text-xs text-zinc-400">Paste the key requirements</span>
+                        <label htmlFor="jd" className="text-sm font-semibold text-white/80">Job Description</label>
+                        <span className={cn(
+                            'text-xs transition-colors',
+                            localJobDescription.length > 0 ? 'text-indigo-400' : 'text-white/20'
+                        )}>
+                            {localJobDescription.length} chars
+                        </span>
                     </div>
 
-                    <div className="relative group">
+                    <div className="relative">
                         <textarea
                             id="jd"
-                            className="flex min-h-[200px] w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm ring-offset-white placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-600 dark:focus-visible:ring-blue-800 transition-all shadow-sm group-hover:shadow-md resize-none"
-                            placeholder="Paste the job description here (responsibilities, requirements, etc.)..."
+                            rows={7}
+                            className={cn(
+                                'w-full rounded-2xl glass px-4 py-3 text-sm text-white placeholder:text-white/25 resize-none',
+                                'outline-none transition-all duration-300',
+                                'focus:border-indigo-500/60 focus:bg-indigo-500/5 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]',
+                                'border',
+                                localJobDescription.length > 0 ? 'border-indigo-500/30' : 'border-white/8'
+                            )}
+                            placeholder="Paste the job description here — responsibilities, requirements, preferred skills…"
                             value={localJobDescription}
                             onChange={(e) => setLocalJobDescription(e.target.value)}
                         />
-                        <div className="absolute bottom-3 right-3 pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity">
-                            <span className="text-[10px] text-zinc-400 bg-white dark:bg-zinc-900 px-2 py-1 rounded border border-zinc-100 dark:border-zinc-800 shadow-sm">
-                                {localJobDescription.length} chars
-                            </span>
-                        </div>
                     </div>
                 </div>
 
-                <Button
-                    size="lg"
-                    className="w-full h-12 text-base shadow-lg shadow-blue-900/5 hover:shadow-blue-900/10 transition-all active:scale-[0.99]"
-                    disabled={!fileName || !localJobDescription.trim() || isExtracting}
+                {/* CTA */}
+                <button
                     onClick={handleStartAnalysis}
+                    disabled={!canSubmit}
+                    className={cn(
+                        'w-full h-14 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 transition-all duration-200',
+                        canSubmit
+                            ? 'btn-primary text-white cursor-pointer'
+                            : 'bg-white/5 text-white/20 border border-white/8 cursor-not-allowed'
+                    )}
                 >
-                    Start Analysis
-                    <ArrowRight className="w-4 h-4 ml-2 opacity-50" />
-                </Button>
+                    {isExtracting ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Reading PDF…
+                        </>
+                    ) : (
+                        <>
+                            Start Analysis
+                            <ArrowRight className="w-4 h-4" />
+                        </>
+                    )}
+                </button>
             </div>
         </div>
     );

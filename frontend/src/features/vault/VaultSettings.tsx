@@ -1,10 +1,16 @@
+'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useVault } from '@/hooks/useVault';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Lock, Unlock, Key, Trash2, ShieldCheck, ShieldAlert, X } from 'lucide-react';
-import { cn } from '@/components/ui/card';
+import { Lock, Unlock, Key, Trash2, ShieldCheck } from 'lucide-react';
+
+function cn(...classes: (string | undefined | false)[]) {
+    return classes.filter(Boolean).join(' ');
+}
+
+const inputClass = cn(
+    'w-full rounded-xl glass px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none',
+    'border border-white/8 focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all duration-200'
+);
 
 export function VaultSettings() {
     const { isLocked, hasVault, saveKey, unlockVault, clearVault, error, init } = useVault();
@@ -14,15 +20,11 @@ export function VaultSettings() {
     const [isSetupMode, setIsSetupMode] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Initialize vault state
-    useEffect(() => {
-        init();
-    }, [init]);
+    useEffect(() => { init(); }, [init]);
 
-    // Close on click outside
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
                 setIsOpen(false);
                 setIsSetupMode(false);
             }
@@ -34,152 +36,146 @@ export function VaultSettings() {
     const handleUnlock = async () => {
         await unlockVault(password);
         setPassword('');
-        // Keep open specifically to show success state briefly or close? 
-        // Let's close for better UX
         setIsOpen(false);
     };
 
     const handleSave = async () => {
         if (!password || !apiKey) return;
         await saveKey(apiKey, password);
-        setPassword('');
-        setApiKey('');
-        setIsSetupMode(false);
-        setIsOpen(false);
+        setPassword(''); setApiKey('');
+        setIsSetupMode(false); setIsOpen(false);
     };
 
-    // Badge Trigger Component
-    const VaultBadge = () => {
-        if (!hasVault) {
-            return (
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all border border-transparent hover:border-zinc-300"
-                >
-                    <div className="w-2 h-2 rounded-full bg-zinc-400 group-hover:bg-zinc-500" />
-                    <span>Setup Vault</span>
-                </button>
-            );
-        }
-
-        if (isLocked) {
-            return (
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-xs font-medium text-amber-700 dark:text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all border border-amber-200/50 hover:border-amber-300/50"
-                >
-                    <Lock className="w-3 h-3" />
-                    <span>Locked</span>
-                </button>
-            );
-        }
-
-        return (
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-xs font-medium text-emerald-700 dark:text-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all border border-emerald-200/50 hover:border-emerald-300/50"
-            >
-                <ShieldCheck className="w-3 h-3" />
-                <span>Secure</span>
-            </button>
-        );
-    };
+    // Badge
+    const badge = !hasVault ? (
+        <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass border border-white/8 text-xs font-medium text-white/50 hover:text-white hover:border-white/20 transition-all"
+        >
+            <Key className="w-3 h-3" />
+            Setup Vault
+        </button>
+    ) : isLocked ? (
+        <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs font-medium text-amber-400 hover:bg-amber-500/15 transition-all"
+        >
+            <Lock className="w-3 h-3" />
+            Locked
+        </button>
+    ) : (
+        <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-medium text-emerald-400 hover:bg-emerald-500/15 transition-all"
+        >
+            <ShieldCheck className="w-3 h-3" />
+            Secure
+        </button>
+    );
 
     return (
         <div className="relative z-50" ref={containerRef}>
-            <VaultBadge />
+            {badge}
 
-            {/* Dropdown / Popover Content */}
             {isOpen && (
-                <div className="absolute right-0 top-full mt-3 w-80 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                    <Card className="p-4 shadow-xl border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm">
+                <div className="absolute right-0 top-full mt-3 w-76 origin-top-right animate-in fade-in zoom-in-95 duration-200">
+                    <div className="glass-strong rounded-2xl p-5 shadow-2xl shadow-black/50 w-72">
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                                {hasVault ? (isLocked ? <Lock className="w-4 h-4 text-amber-500" /> : <Unlock className="w-4 h-4 text-emerald-500" />) : <Key className="w-4 h-4 text-zinc-500" />}
+                        <div className="flex items-center gap-2 mb-4">
+                            {hasVault
+                                ? isLocked
+                                    ? <Lock className="w-4 h-4 text-amber-400" />
+                                    : <Unlock className="w-4 h-4 text-emerald-400" />
+                                : <Key className="w-4 h-4 text-white/40" />
+                            }
+                            <h3 className="text-sm font-semibold text-white">
                                 {hasVault ? (isLocked ? 'Vault Locked' : 'Vault Active') : 'Setup Vault'}
                             </h3>
-                            {/* <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsOpen(false)}>
-                            <X className="w-3 h-3" />
-                        </Button> */}
                         </div>
 
-                        {/* Content Logic */}
+                        {/* Forms */}
                         {!hasVault || isSetupMode ? (
                             <div className="space-y-3">
-                                {/* Setup Form */}
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">API Key</label>
-                                    <Input
-                                        className="h-8 text-sm"
-                                        type="password"
-                                        placeholder="sk-..."
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                    />
+                                    <label className="text-[11px] font-medium text-white/30 uppercase tracking-wider">OpenAI API Key</label>
+                                    <input className={inputClass} type="password" placeholder="sk-..." value={apiKey} onChange={e => setApiKey(e.target.value)} />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Master Password</label>
-                                    <Input
-                                        className="h-8 text-sm"
-                                        type="password"
-                                        placeholder="Strong password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
+                                    <label className="text-[11px] font-medium text-white/30 uppercase tracking-wider">Master Password</label>
+                                    <input className={inputClass} type="password" placeholder="Strong password" value={password} onChange={e => setPassword(e.target.value)} />
                                 </div>
-                                <div className="pt-2 flex gap-2">
-                                    <Button size="sm" onClick={handleSave} className="w-full h-8">Encrypt & Save</Button>
-                                    {hasVault && <Button size="sm" variant="ghost" onClick={() => setIsSetupMode(false)} className="h-8">Cancel</Button>}
+                                <div className="flex gap-2 pt-1">
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={!password || !apiKey}
+                                        className="flex-1 h-9 rounded-xl btn-primary text-white text-sm font-medium disabled:opacity-40"
+                                    >
+                                        Encrypt &amp; Save
+                                    </button>
+                                    {hasVault && (
+                                        <button onClick={() => setIsSetupMode(false)} className="px-3 h-9 rounded-xl text-sm text-white/40 hover:text-white border border-white/8 hover:border-white/20 transition-all">
+                                            Cancel
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ) : isLocked ? (
                             <div className="space-y-3">
-                                {/* Unlock Form */}
-                                <p className="text-xs text-zinc-500 leading-relaxed">
-                                    Enter your master password to unlock the Open AI key for this session.
+                                <p className="text-xs text-white/40 leading-relaxed">
+                                    Enter your master password to unlock the API key for this session.
                                 </p>
-                                <Input
-                                    className="h-9"
+                                <input
+                                    className={inputClass}
                                     type="password"
                                     placeholder="Master password"
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+                                    onChange={e => setPassword(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleUnlock()}
+                                    autoFocus
                                 />
-                                {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
-                                <div className="pt-1 flex gap-2">
-                                    <Button size="sm" onClick={handleUnlock} className="w-full">Unlock Vault</Button>
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                {error && <p className="text-xs text-red-400 font-medium">{error}</p>}
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleUnlock}
+                                        className="flex-1 h-9 rounded-xl btn-primary text-white text-sm font-medium"
+                                    >
+                                        Unlock
+                                    </button>
+                                    <button
                                         onClick={clearVault}
-                                        title="Reset Vault (Clears Key)"
+                                        title="Reset vault"
+                                        className="w-9 h-9 rounded-xl border border-red-500/20 text-red-400/60 hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/10 transition-all flex items-center justify-center"
                                     >
                                         <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                    </button>
                                 </div>
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {/* Unlocked State */}
-                                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
-                                    <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium flex gap-2 items-center">
-                                        <ShieldCheck className="w-3 h-3" />
-                                        Session Secure
-                                    </p>
-                                    <p className="text-[10px] text-emerald-600/80 dark:text-emerald-500/80 mt-1">
-                                        Your key is decrypted in memory.
-                                    </p>
+                                <div className="p-3 bg-emerald-500/8 rounded-xl border border-emerald-500/20 flex items-start gap-2">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-medium text-emerald-400">Session Secure</p>
+                                        <p className="text-[11px] text-emerald-400/60 mt-0.5">Key is decrypted in memory only.</p>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <Button size="sm" variant="outline" onClick={() => window.location.reload()} className="h-8 text-xs">Lock Vault</Button>
-                                    <Button size="sm" variant="ghost" onClick={clearVault} className="h-8 text-xs text-red-500 hover:text-red-600 hover:bg-red-50">Reset Key</Button>
+                                    <button
+                                        onClick={() => window.location.reload()}
+                                        className="h-9 rounded-xl border border-white/8 text-xs text-white/50 hover:text-white hover:border-white/20 transition-all"
+                                    >
+                                        Lock Vault
+                                    </button>
+                                    <button
+                                        onClick={clearVault}
+                                        className="h-9 rounded-xl border border-red-500/15 text-xs text-red-400/60 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/8 transition-all"
+                                    >
+                                        Reset Key
+                                    </button>
                                 </div>
                             </div>
                         )}
-                    </Card>
+                    </div>
                 </div>
             )}
         </div>

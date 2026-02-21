@@ -1,11 +1,28 @@
+'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Loader2, Send, Bot, User, CheckCircle2 } from 'lucide-react';
+import { Loader2, Send, Sparkles } from 'lucide-react';
 import { ApiClient } from '@/lib/api/client';
 import { useVault } from '@/hooks/useVault';
+
+function cn(...classes: (string | undefined | false)[]) {
+    return classes.filter(Boolean).join(' ');
+}
+
+function TypingIndicator() {
+    return (
+        <div className="flex gap-3 animate-slide-left">
+            <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+            </div>
+            <div className="glass rounded-2xl rounded-tl-none px-4 py-3 flex gap-1.5 items-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-white/50 dot-1" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white/50 dot-2" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white/50 dot-3" />
+            </div>
+        </div>
+    );
+}
 
 export function InterviewScreen() {
     const { gaps, addUserAnswer, userAnswers, setGeneratedCV, setStage, setError, cvText, jobDescription } = useAppStore();
@@ -14,28 +31,31 @@ export function InterviewScreen() {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [currentAnswer, setCurrentAnswer] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [showTyping, setShowTyping] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll to bottom of chat
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
         }
-    }, [userAnswers, currentQuestionIndex]);
+    }, [userAnswers, currentQuestionIndex, showTyping]);
 
     const currentGap = gaps[currentQuestionIndex];
     const isFinished = currentQuestionIndex >= gaps.length;
+    const progress = Math.round((currentQuestionIndex / gaps.length) * 100);
 
     const handleSendAnswer = () => {
-        if (!currentAnswer.trim()) return;
+        if (!currentAnswer.trim() || isFinished) return;
 
-        addUserAnswer({
-            question: currentGap.question,
-            answer: currentAnswer
-        });
-
+        addUserAnswer({ question: currentGap.question, answer: currentAnswer });
         setCurrentAnswer('');
-        setCurrentQuestionIndex(prev => prev + 1);
+
+        // Show typing indicator briefly before next question
+        setShowTyping(true);
+        setTimeout(() => {
+            setShowTyping(false);
+            setCurrentQuestionIndex(prev => prev + 1);
+        }, 900);
     };
 
     const handleGenerate = async () => {
@@ -43,119 +63,145 @@ export function InterviewScreen() {
             setIsGenerating(true);
             const apiKey = getKey();
             const result = await ApiClient.generateCV(cvText, jobDescription, userAnswers, apiKey);
-
             setGeneratedCV(result);
-            setStage("READY");
+            setStage('READY');
         } catch (e: any) {
-            setError(e.message || "Failed to generate CV.");
+            setError(e.message || 'Failed to generate CV.');
             setIsGenerating(false);
         }
     };
 
     return (
-        <div className="max-w-2xl mx-auto h-[600px] flex flex-col">
-            <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold">Gap Analysis Interview</h2>
-                <p className="text-zinc-500">Help the AI understand your missing skills to optimize your CV.</p>
+        <div className="max-w-2xl mx-auto flex flex-col gap-4 animate-slide-up">
+            {/* Header */}
+            <div className="text-center space-y-1">
+                <h2 className="text-2xl font-bold text-white">Gap Analysis Interview</h2>
+                <p className="text-sm text-white/40">Answer honestly — the AI will use your responses to position your CV strategically.</p>
             </div>
 
-            <Card className="flex-1 flex flex-col overflow-hidden bg-zinc-50/50 dark:bg-zinc-900/50 backdrop-blur-sm">
-                {/* Chat Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-6" ref={scrollRef}>
+            {/* Progress bar */}
+            <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-white/30">
+                    <span>{currentQuestionIndex} of {gaps.length} answered</span>
+                    <span>{progress}%</span>
+                </div>
+                <div className="h-1 rounded-full bg-white/8 overflow-hidden">
+                    <div
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-700 ease-out"
+                        style={{ width: `${progress}%` }}
+                    />
+                </div>
+            </div>
+
+            {/* Chat window */}
+            <div className="glass rounded-2xl overflow-hidden flex flex-col" style={{ height: '480px' }}>
+                <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-5">
                     {/* History */}
                     {userAnswers.map((ans, i) => (
-                        <div key={i} className="space-y-4">
-                            <div className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                                    <Bot className="w-5 h-5" />
+                        <div key={i} className="space-y-3">
+                            {/* AI question */}
+                            <div className="flex gap-3 animate-slide-left">
+                                <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                                    <Sparkles className="w-4 h-4 text-indigo-400" />
                                 </div>
-                                <div className="bg-white dark:bg-zinc-800 p-3 rounded-2xl rounded-tl-none shadow-sm border border-zinc-100 dark:border-zinc-700 max-w-[85%]">
-                                    <p className="text-sm">{gaps[i].question}</p>
+                                <div className="glass rounded-2xl rounded-tl-none px-4 py-3 max-w-[85%]">
+                                    <p className="text-sm text-white/80">{gaps[i].question}</p>
                                 </div>
                             </div>
-                            <div className="flex gap-3 flex-row-reverse">
-                                <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center shrink-0">
-                                    <User className="w-5 h-5" />
+                            {/* User answer */}
+                            <div className="flex gap-3 flex-row-reverse animate-slide-right">
+                                <div className="w-8 h-8 rounded-full bg-white/8 border border-white/10 flex items-center justify-center shrink-0 text-xs font-bold text-white/50">
+                                    You
                                 </div>
-                                <div className="bg-zinc-900 text-zinc-50 dark:bg-zinc-50 dark:text-zinc-900 p-3 rounded-2xl rounded-tr-none shadow-sm max-w-[85%]">
-                                    <p className="text-sm">{ans.answer}</p>
+                                <div className="bg-indigo-600/80 rounded-2xl rounded-tr-none px-4 py-3 max-w-[85%]">
+                                    <p className="text-sm text-white">{ans.answer}</p>
                                 </div>
                             </div>
                         </div>
                     ))}
 
-                    {/* Current Question */}
-                    {!isFinished && (
-                        <div className="flex gap-3 animate-in fade-in slide-in-from-left-4 duration-300">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                                <Bot className="w-5 h-5" />
-                            </div>
-                            <div className="space-y-2 max-w-[85%]">
-                                <div className="bg-white dark:bg-zinc-800 p-3 rounded-2xl rounded-tl-none shadow-sm border border-zinc-100 dark:border-zinc-700">
-                                    <p className="text-sm font-medium">{currentGap.question}</p>
+                    {/* Typing indicator */}
+                    {showTyping && <TypingIndicator />}
+
+                    {/* Current question */}
+                    {!isFinished && !showTyping && (
+                        <div className="flex gap-3 animate-slide-left">
+                            <div className="relative w-8 h-8 shrink-0">
+                                <div className="absolute inset-0 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+                                    <Sparkles className="w-4 h-4 text-indigo-400" />
                                 </div>
-                                <p className="text-xs text-zinc-500 ml-2 italic">Context: {currentGap.context}</p>
+                                <div className="absolute inset-0 rounded-full border border-indigo-400/30 animate-ping [animation-duration:2s]" />
+                            </div>
+                            <div className="space-y-1.5 max-w-[85%]">
+                                <div className="glass rounded-2xl rounded-tl-none px-4 py-3">
+                                    <p className="text-sm font-medium text-white">{currentGap.question}</p>
+                                </div>
+                                <p className="text-[11px] text-white/25 ml-2 italic">{currentGap.context}</p>
                             </div>
                         </div>
                     )}
 
-                    {/* Finished State */}
-                    {isFinished && (
-                        <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in zoom-in-95 duration-500">
-                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                                <CheckCircle2 className="w-8 h-8" />
+                    {/* Finished */}
+                    {isFinished && !showTyping && (
+                        <div className="flex flex-col items-center gap-3 py-6 animate-slide-up">
+                            <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                                <span className="text-2xl">✓</span>
                             </div>
-                            <h3 className="text-lg font-medium">Interview Complete!</h3>
-                            <p className="text-sm text-zinc-500 text-center max-w-xs">
-                                We have everything we need to generate your optimized CV.
-                            </p>
+                            <div className="text-center">
+                                <p className="font-semibold text-white">All questions answered!</p>
+                                <p className="text-sm text-white/40">Ready to generate your optimized CV.</p>
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* Input Area */}
-                <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                {/* Input bar */}
+                <div className="border-t border-white/5 p-4 bg-white/2">
                     {!isFinished ? (
                         <div className="flex gap-2">
-                            <Input
-                                placeholder="Type your answer..."
+                            <input
+                                type="text"
+                                className="flex-1 glass rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/25 outline-none border border-white/8 focus:border-indigo-500/40 focus:bg-indigo-500/5 transition-all"
+                                placeholder="Type your answer…"
                                 value={currentAnswer}
                                 onChange={(e) => setCurrentAnswer(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSendAnswer()}
                                 autoFocus
+                                disabled={showTyping}
                             />
-                            <Button
-                                size="icon"
+                            <button
+                                className={cn(
+                                    'w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0',
+                                    currentAnswer.trim() && !showTyping
+                                        ? 'btn-primary text-white'
+                                        : 'bg-white/5 text-white/20 cursor-not-allowed'
+                                )}
                                 onClick={handleSendAnswer}
-                                disabled={!currentAnswer.trim()}
+                                disabled={!currentAnswer.trim() || showTyping}
                             >
                                 <Send className="w-4 h-4" />
-                            </Button>
+                            </button>
                         </div>
                     ) : (
-                        <Button
-                            size="lg"
-                            className="w-full"
+                        <button
                             onClick={handleGenerate}
                             disabled={isGenerating}
+                            className="w-full h-12 rounded-xl btn-primary text-white font-semibold text-sm flex items-center justify-center gap-2"
                         >
                             {isGenerating ? (
                                 <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Generating Optimized CV...
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Crafting your CV…
                                 </>
                             ) : (
-                                "Generate CV"
+                                <>
+                                    <Sparkles className="w-4 h-4" />
+                                    Generate Optimized CV
+                                </>
                             )}
-                        </Button>
+                        </button>
                     )}
                 </div>
-            </Card>
-
-            <div className="text-center mt-4">
-                <p className="text-xs text-zinc-400">
-                    {currentQuestionIndex} of {gaps.length} questions answered
-                </p>
             </div>
         </div>
     );
