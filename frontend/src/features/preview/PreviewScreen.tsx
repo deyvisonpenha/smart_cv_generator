@@ -31,12 +31,55 @@ export function PreviewScreen() {
     const handleExport = async () => {
         if (!cvRef.current) return;
         setIsExporting(true);
+
+        // html2canvas does not support modern CSS color spaces (lab, oklch, oklab, color-mix)
+        // that Tailwind v4 / @tailwindcss/typography may inject via the `prose` classes.
+        // We inject a temporary override stylesheet that replaces every color with a
+        // safe hex equivalent scoped to the .cv-content element, then remove it after.
+        const safeColorStyle = document.createElement('style');
+        safeColorStyle.id = '__pdf-safe-colors';
+        safeColorStyle.textContent = `
+            .cv-content, .cv-content * {
+                color: #1a1a1a !important;
+                background-color: #ffffff !important;
+                border-color: #d4d4d4 !important;
+                text-decoration-color: #1a1a1a !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+            .cv-content h1, .cv-content h2, .cv-content h3, 
+            .cv-content h4, .cv-content h5, .cv-content h6 { 
+                color: #000000 !important; 
+            }
+            .cv-content p, .cv-content li { color: #1a1a1a !important; }
+            .cv-content a { color: #2563eb !important; text-decoration: underline !important; }
+            .cv-content hr { border-color: #e5e7eb !important; border-top: 1px solid #e5e7eb !important; }
+        `;
+        document.head.appendChild(safeColorStyle);
+
         const element = cvRef.current;
         const opt = {
             margin: [5, 5, 5, 5] as [number, number, number, number],
             filename: 'optimized_cv.pdf',
             image: { type: 'jpeg' as const, quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 794 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                scrollY: 0,
+                windowWidth: 794,
+                logging: false,
+                onclone: (clonedDoc: Document) => {
+                    // Critical fallback: Find all elements in the cloned document and 
+                    // strip any style attribute containing modern color functions
+                    const elements = clonedDoc.querySelectorAll('*');
+                    elements.forEach((el) => {
+                        const style = (el as HTMLElement).getAttribute('style') || '';
+                        if (style.includes('lab(') || style.includes('oklch(') || style.includes('oklab(') || style.includes('color-mix(')) {
+                            (el as HTMLElement).setAttribute('style', style.replace(/color:[^;]+;/g, 'color:#1a1a1a;'));
+                        }
+                    });
+                }
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
             pagebreak: {
                 mode: ['avoid-all', 'css', 'legacy'],
@@ -53,6 +96,7 @@ export function PreviewScreen() {
             console.error('PDF Export failed', e);
             alert('Failed to export PDF. Please try again.');
         } finally {
+            safeColorStyle.remove();
             setIsExporting(false);
         }
     };

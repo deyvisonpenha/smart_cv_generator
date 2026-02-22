@@ -298,7 +298,7 @@ If any check fails, rewrite the offending bullet before outputting.
                 {"role": "system", "content": "You are an expert resume writer."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.1,        # Lower = more literal, less creative compression
+            temperature=0.3,        # it can construct richer, more natural professional language
             response_format={"type": "json_object"},
         )
     except APIConnectionError as e:
