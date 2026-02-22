@@ -14,10 +14,9 @@ const inputClass = [
 ].join(' ');
 
 export function VaultSettings() {
-    const { isLocked, hasVault, saveKey, unlockVault, clearVault, error, init } = useVault();
+    const { isLocked, hasVault, saveKey, unlockVault, clearVault, error, init, isSettingsOpen, setSettingsOpen } = useVault();
     const [password, setPassword] = useState('');
     const [apiKey, setApiKey] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
     const [isSetupMode, setIsSetupMode] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -26,14 +25,14 @@ export function VaultSettings() {
 
     // Close on Escape
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isSettingsOpen) return;
         const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
         document.addEventListener('keydown', handleKey);
         return () => document.removeEventListener('keydown', handleKey);
-    }, [isOpen]);
+    }, [isSettingsOpen]);
 
-    const open = () => setIsOpen(true);
-    const close = () => { setIsOpen(false); setIsSetupMode(false); };
+    const open = () => setSettingsOpen(true);
+    const close = () => { setSettingsOpen(false); setIsSetupMode(false); };
 
     const handleUnlock = async () => {
         await unlockVault(password);
@@ -89,7 +88,7 @@ export function VaultSettings() {
     const iconColor = hasVault ? (isLocked ? 'text-amber-400' : 'text-emerald-400') : 'text-indigo-400';
 
     // ── Modal (portal) ──────────────────────────────────────────
-    const modal = isOpen && mounted && createPortal(
+    const modal = isSettingsOpen && mounted && createPortal(
         <div
             style={{
                 position: 'fixed',

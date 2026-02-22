@@ -4,6 +4,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { ApiClient } from '@/lib/api/client';
 import { UploadCloud, FileText, Loader2, ArrowRight, Sparkles } from 'lucide-react';
 import { useVault } from '@/hooks/useVault';
+import { LocalLLMWarning } from '../vault/LocalLLMWarning';
 
 function cn(...classes: (string | undefined | false)[]) {
     return classes.filter(Boolean).join(' ');
@@ -11,11 +12,12 @@ function cn(...classes: (string | undefined | false)[]) {
 
 export function UploadScreen() {
     const { setStage, setCVText, setJobDescription, setError } = useAppStore();
-    const { getKey } = useVault();
+    const { isLocked, setSettingsOpen } = useVault();
     const [isDragging, setIsDragging] = useState(false);
     const [isExtracting, setIsExtracting] = useState(false);
     const [fileName, setFileName] = useState<string | null>(null);
     const [localJobDescription, setLocalJobDescription] = useState('');
+    const [showWarning, setShowWarning] = useState(false);
 
     const handleFile = async (file: File) => {
         if (file.type !== 'application/pdf') {
@@ -52,11 +54,21 @@ export function UploadScreen() {
         setIsDragging(false);
     }, []);
 
+    const startAnalysisFlow = () => {
+        setJobDescription(localJobDescription);
+        setStage('ANALYZING');
+        setShowWarning(false);
+    };
+
     const handleStartAnalysis = () => {
         if (!fileName) { setError('Please upload a CV first.'); return; }
         if (!localJobDescription.trim()) { setError('Please enter a job description.'); return; }
-        setJobDescription(localJobDescription);
-        setStage('ANALYZING');
+
+        if (isLocked) {
+            setShowWarning(true);
+        } else {
+            startAnalysisFlow();
+        }
     };
 
     const canSubmit = !!fileName && !!localJobDescription.trim() && !isExtracting;
@@ -208,6 +220,16 @@ export function UploadScreen() {
                     )}
                 </button>
             </div>
+
+            <LocalLLMWarning
+                isOpen={showWarning}
+                onClose={() => setShowWarning(false)}
+                onContinue={startAnalysisFlow}
+                onUnlock={() => {
+                    setShowWarning(false);
+                    setSettingsOpen(true);
+                }}
+            />
         </div>
     );
 }

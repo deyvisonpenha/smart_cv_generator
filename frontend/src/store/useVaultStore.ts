@@ -4,6 +4,7 @@ import { encryptSecret, decryptSecret, EncryptedData } from '@/lib/crypto';
 interface VaultState {
     isLocked: boolean;
     hasVault: boolean;
+    isSettingsOpen: boolean;
     error: string | null;
 
     // Actions
@@ -13,6 +14,7 @@ interface VaultState {
     getKey: () => string | null;
     clearVault: () => void;
     lockVault: () => void;
+    setSettingsOpen: (open: boolean) => void;
 }
 
 const STORAGE_KEY = 'smartcv_vault';
@@ -25,6 +27,7 @@ let memoryExpiration: number | null = null;
 export const useVaultStore = create<VaultState>((set, get) => ({
     isLocked: true,
     hasVault: false,
+    isSettingsOpen: false,
     error: null,
 
     init: () => {
@@ -98,5 +101,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         memoryKey = null;
         memoryExpiration = null;
         set({ hasVault: false, isLocked: true, error: null });
-    }
+    },
+
+    setSettingsOpen: (open) => set({ isSettingsOpen: open })
 }));

@@ -62,6 +62,7 @@ export function InterviewScreen() {
         try {
             setIsGenerating(true);
             const apiKey = getKey();
+            if (!apiKey) console.warn("Generating without API Key — falling back to Local LLM (Ollama)");
             const result = await ApiClient.generateCV(cvText, jobDescription, userAnswers, apiKey);
             setGeneratedCV(result);
             setStage('READY');

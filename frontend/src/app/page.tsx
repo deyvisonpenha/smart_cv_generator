@@ -62,11 +62,7 @@ export default function Home() {
             if (stage === 'ANALYZING') {
                 try {
                     const apiKey = getKey();
-                    if (!apiKey) {
-                        throw new Error(isLocked
-                            ? 'Vault is locked. Please unlock to proceed.'
-                            : 'API Key not found. Please setup your vault.');
-                    }
+                    if (!apiKey) console.warn("Analyzing without API Key — falling back to Local LLM (Ollama)");
                     const gaps = await ApiClient.analyzeGaps(cvText, jobDescription, apiKey);
                     setGaps(gaps);
                     setStage('INTERVIEW');
