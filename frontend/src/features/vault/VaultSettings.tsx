@@ -10,7 +10,7 @@ function cn(...classes: (string | undefined | false)[]) {
 
 const inputClass = [
     'w-full rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none',
-    'bg-white/8 border border-white/10 focus:border-indigo-500/60 focus:bg-indigo-500/5 transition-all duration-200',
+    'bg-[#1a1a24] border border-white/10 focus:border-indigo-500/60 focus:bg-indigo-500/5 transition-all duration-200',
 ].join(' ');
 
 export function VaultSettings() {
@@ -106,9 +106,9 @@ export function VaultSettings() {
                 style={{
                     position: 'absolute',
                     inset: 0,
-                    background: 'rgba(0,0,0,0.75)',
-                    backdropFilter: 'blur(6px)',
-                    WebkitBackdropFilter: 'blur(6px)',
+                    background: 'rgba(8, 8, 12, 0.96)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
                 }}
             />
 

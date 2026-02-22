@@ -45,9 +45,9 @@ export function LocalLLMWarning({ isOpen, onClose, onContinue, onUnlock }: Local
                 style={{
                     position: 'absolute',
                     inset: 0,
-                    background: 'rgba(0,0,0,0.75)',
-                    backdropFilter: 'blur(6px)',
-                    WebkitBackdropFilter: 'blur(6px)',
+                    background: 'rgba(8, 8, 12, 0.96)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
                 }}
             />
 
@@ -100,8 +100,8 @@ export function LocalLLMWarning({ isOpen, onClose, onContinue, onUnlock }: Local
                 {/* Body */}
                 <div style={{ padding: '20px 24px 28px' }}>
                     <div style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.05)',
+                        background: '#1a1a24',
+                        border: '1px solid rgba(255,255,255,0.08)',
                         borderRadius: '16px',
                         padding: '16px',
                         marginBottom: '24px'
