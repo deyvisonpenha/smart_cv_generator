@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SmartCV — AI-Powered Resume Optimizer
 
-## Getting Started
+SmartCV is a premium, modern web application designed to strategically optimize resumes for specific job descriptions. It uses advanced AI gap analysis and an interactive interview process to enrich your CV with concrete professional achievements.
 
-First, run the development server:
+## ✨ Key Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **AI Gap Analysis**: Scans your CV against a job description to identify missing skills and experiences.
+- **Interactive Q&A**: A dynamic chat interface that asks targeted questions to extract missing context.
+- **Secure Key Vault**: AES-GCM encrypted local storage for your OpenAI API keys. Your data never leaves your browser.
+- **Local LLM Fallback**: Seamless integration with Ollama for private, local AI processing when the vault is locked.
+- **Premium Export**: High-fidelity PDF generation with a clean, professional layout.
+- **Modern SaaS UI**: A sleek, dark-themed interface built with Tailwind v4 and glassmorphism.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **Component Library**: React 19 + [Lucide React](https://lucide.dev/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (modern CSS-first configuration)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
+- **PDF Engine**: [html2pdf.js](https://github.com/eKoopmans/html2pdf.js/)
+- **Encryption**: Browser Web Crypto API (SubtleCrypto)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Getting Started
 
-## Learn More
+### Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- Node.js 18+ 
+- Backend service running (FastAPI + OpenAI/Ollama)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Installation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Deploy on Vercel
+2. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📁 Project Structure
+
+- `/src/app`: Next.js App Router pages and global layout.
+- `/src/features`: Modular feature-based organization (Upload, Interview, Preview, Vault).
+- `/src/store`: Zustand state management stores.
+- `/src/lib/api`: API client for backend communication.
+- `/src/hooks`: Custom React hooks.
+- `/src/types`: TypeScript interfaces and types.
+
+## 🔒 Security
+
+SmartCV prioritizes your privacy. Your API keys are encrypted at rest using your master password and a 256-bit PBKDF2 derived key. All transformations happen in your session, and we do not store your data on our servers.
