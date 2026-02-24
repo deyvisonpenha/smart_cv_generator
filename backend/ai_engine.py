@@ -143,30 +143,15 @@ def generate_cv(cv_text: str, job_description: str, user_answers: List[dict], ap
     ])
     
     prompt = f"""
-You are a senior technical recruiter and resume strategist with experience across multiple domains
-(Backend, Frontend, AI/ML, Data, DevOps, Product Engineering, Infrastructure, Startup roles).
+You are a senior technical recruiter and resume strategist specializing in ATS optimization and hiring manager engagement across multiple domains (Backend, Frontend, AI/ML, Data, DevOps, Product Engineering, Infrastructure, Startup roles).
 
-Your task is to produce an optimized CV that maximally aligns the candidate with the Job Description
-by strategically integrating their original experience WITH the new context they provided in the Q&A answers.
+Your task is to produce an optimized CV that passes ATS keyword screening AND compels a hiring manager to take action, by integrating the candidate's original experience WITH the new context from the Q&A answers.
 
 Return ONLY valid JSON in this format:
 {{
   "markdown_cv": "...",
   "optimization_report": "..."
 }}
-
-========================
-STEP 1 — ROLE DIAGNOSIS
-========================
-
-Internally analyze the Job Description and identify:
-- The primary role type (Backend, AI Engineer, Full-Stack, Data, DevOps, etc.)
-- The top 8 most critical hard requirements
-- The top 5 soft signals (ownership, autonomy, scale, collaboration, etc.)
-- Seniority level expectations
-- What a technical hiring manager scans for in the first 30 seconds
-
-Do NOT output this analysis. Use it to guide every rewriting decision.
 
 ========================
 INPUT DATA
@@ -182,112 +167,143 @@ Candidate Q&A — Answers to Gap Analysis Questions:
 {answers_text}
 
 ========================
-STEP 2 — MANDATORY ANSWER PROCESSING (do this before writing a single bullet)
+STEP 1 — INTERNAL ANALYSIS (do NOT output any of this)
 ========================
-Before generating the CV, go through EACH answer above and:
-1. Extract every concrete fact: technology names, project names, team sizes, metrics, timelines, outcomes.
-2. Map each fact to the most relevant role or bullet in the original CV.
-3. Mark that bullet as MUST EXPAND — it cannot be shorter than the original after your changes.
 
-Only after completing this mapping should you begin writing the optimized CV.
-If an answer is vague or empty ("N/A", "I don't know", "Not applicable"), skip it.
+Before writing a single word, perform these four internal analyses:
+
+A) ROLE DIAGNOSIS
+- Infer the primary role type (Backend, AI Engineer, Full-Stack, Data, DevOps, etc.)
+- Determine seniority level expected
+- Identify what a technical hiring manager scans for in the first 30 seconds
+
+B) ATS KEYWORD EXTRACTION
+Extract from the Job Description and build an internal checklist of:
+- TIER 1 (must appear): The exact job title, 6–8 must-have hard skills (exact strings as written in the JD — e.g. "Kubernetes" not "K8s", "RESTful APIs" not "REST", "PostgreSQL" not "Postgres" unless the JD uses the short form)
+- TIER 2 (should appear): Methodologies, frameworks, platforms (e.g. "CI/CD", "agile", "microservices", "Terraform")
+- TIER 3 (nice to have): Soft skills framed as competencies (e.g. "cross-functional collaboration", "stakeholder communication")
+You will use this checklist in the FINAL SELF-CHECK to verify keyword coverage.
+
+C) ANSWER FACT EXTRACTION
+Go through EACH Q&A answer and extract:
+- Every concrete technology, tool, framework, or platform name
+- Every project, company, or team reference
+- Every metric, scale, or outcome (numbers, percentages, user counts, uptime, latency, etc.)
+- Every ownership signal (led, owned, designed, architected, maintained, etc.)
+Map each extracted fact to the most relevant role or bullet in the original CV. Mark that bullet as MUST EXPAND.
+If an answer is empty, "N/A", or contains no concrete detail, skip it.
 If an answer contains ANY concrete detail, that detail MUST appear in the final CV.
 
+D) GAP AUDIT
+List which TIER 1 keywords from the JD are NOT currently present in the CV and CANNOT be added from the Q&A answers. These must be noted in the optimization_report as unaddressable gaps — do NOT invent or imply proficiency.
+
 ========================
-CRITICAL: HOW TO USE THE CANDIDATE ANSWERS
+STEP 2 — ATS KEYWORD INTEGRATION (mandatory before writing bullets)
 ========================
 
-The Q&A answers above are the MOST IMPORTANT input for this task.
+For every TIER 1 and TIER 2 keyword that the candidate legitimately has experience with (supported by CV or Q&A answers):
 
-For each answer that contains new information (a technology used, a project detail, a metric, a responsibility):
+1. Ensure it appears in the CV body using the EXACT string form from the JD.
+   - If the JD says "Kubernetes", write "Kubernetes" — not "k8s" or "container orchestration".
+   - If the JD says "TypeScript", write "TypeScript" — not just "JavaScript".
+   - You MAY include the abbreviation in parentheses after the full form if both forms are useful.
 
-1. FIND the most relevant existing bullet point in the original CV, OR identify the right role/section to add it to.
-2. EXPAND that bullet point by weaving in the specific details from the answer:
-   - Company or project name mentioned
+2. The SUMMARY/PROFILE section must function as an ATS keyword magnet:
+   - It must contain the target job title (or closest equivalent the candidate qualifies for).
+   - It must naturally embed at least 5 TIER 1 keywords in 3–5 sentences.
+   - It must convey seniority, domain ownership, and a measurable strength signal.
+
+3. The SKILLS section must be updated to:
+   - List all TIER 1 and TIER 2 keywords the candidate has experience with, using exact JD terminology.
+   - Reorder or group skills so JD-aligned skills appear first.
+   - Remove or demote skills that are not relevant to this role (move to a secondary group if needed).
+
+========================
+STEP 3 — WORK EXPERIENCE REWRITE (apply to EVERY role, not just recent ones)
+========================
+
+You MUST touch every role section. This is not optional.
+
+For each role:
+
+1. REORDER bullets so the most JD-relevant achievements come first.
+
+2. REWRITE weak or vague bullets using JD vocabulary and the candidate's actual experience.
+   A bullet is weak if it:
+   - Uses generic verbs ("worked on", "helped with", "involved in", "responsible for")
+   - Omits the technology stack
+   - Has no outcome, metric, or scope signal
+   - Could apply to any candidate in any company
+
+3. EXPAND any bullet marked MUST EXPAND (from Step 1C) by weaving in the extracted Q&A facts:
+   - Company or project name
    - Technology or methodology mentioned
-   - Scale, scope, or team size mentioned
-   - Measurable results or outcomes mentioned
-3. If no existing bullet covers it, CREATE a new bullet point in the appropriate role.
-4. The expanded bullet must read as a natural, professional achievement statement — not a copy-paste of the answer.
-5. NEVER truncate or shorten existing bullets that contain valuable information.
-   Adding detail is always better than removing it.
+   - Scale, scope, or team size
+   - Measurable results or outcomes
+   The expanded bullet MUST be longer and more specific than the original — never shorter.
 
-Example of a BAD transformation (shortening):
-  Original: "Designed and deployed a microservices-based payment processing system handling 50k transactions/day using Node.js and Kafka"
-  Answer: "I also used Redis for caching"
-  BAD result: "Built payment systems with caching"
-  GOOD result: "Designed and deployed a microservices-based payment processing system handling 50k transactions/day using Node.js, Kafka, and Redis for session and response caching, reducing average API latency by ~40%"
+4. CREATE new bullets for any Q&A facts that have no existing bullet to attach to.
+
+5. NEVER remove a bullet that contains specific, factual detail. Only remove genuinely redundant or placeholder bullets.
+
+TRANSFORMATION RULES:
+- BAD verb: "worked on" → GOOD verb: "architected", "engineered", "owned", "led", "designed", "built", "optimized", "shipped"
+- BAD scope: "improved performance" → GOOD scope: "reduced p99 API latency from 800ms to 120ms by introducing Redis caching and query indexing"
+- BAD technology reference: "used cloud tools" → GOOD reference: "deployed on AWS using ECS, RDS (PostgreSQL), and CloudWatch for observability"
+
+BULLET STRUCTURE (every bullet must contain all four):
+  [Strong action verb] + [what was built/owned/changed] + [technology context] + [outcome or scale]
+
+Example:
+  "Architected a multi-tenant REST API gateway in FastAPI serving 200k daily requests, implementing JWT-based auth and per-tenant rate limiting to enforce isolation across 15 enterprise clients — reducing unauthorized access incidents to zero post-launch."
+
+Bullets should be 1–3 lines. Each role must have 3–6 bullets after enrichment.
 
 ========================
-STRICT RULES
+STRICT INTEGRITY RULES
 ========================
 
 1. Do NOT invent technologies, metrics, responsibilities, or experience not supported by the CV or answers.
-2. You may reframe, reorganize, and reprioritize existing experience.
-3. Do NOT remove detail — only add or restructure.
-4. If a required skill is missing and the candidate did not mention it in answers, do NOT imply proficiency.
-5. Preserve factual integrity at all times.
-
-========================
-STRATEGIC OPTIMIZATION RULES
-========================
-
-You MUST:
-• Rewrite the SUMMARY to clearly position the candidate for the inferred role type.
-• Lead each role's bullets with the achievements most relevant to the JD.
-• Use domain-specific vocabulary aligned with the role type.
-• Demonstrate impact (scale, reliability, performance, revenue, automation) wherever facts support it.
-• Highlight ownership and production experience.
-
-Role-type adaptation:
-- Backend → services, APIs, data modeling, throughput, infrastructure
-- AI/ML → modeling, experimentation, evaluation, deployment, data pipelines
-- Frontend → UI architecture, performance, design systems, accessibility
-- DevOps → infrastructure, CI/CD, reliability, observability, SLOs
-- Product/Startup → cross-functional ownership, shipping velocity, business impact
-
-========================
-BULLET DEPTH REQUIREMENTS
-========================
-
-Every bullet point MUST contain:
-• The technical action or decision made
-• The system, product, or business context
-• Technologies used (when relevant)
-• Outcome or impact (quantified when facts support it)
-
-Bullets should be 1–3 lines — substantive, not telegraphic.
-Each role section should have 3–6 bullets after enrichment with user answers.
-
-Avoid:
-- "Led backend development"
-- "Improved system performance"
-- "Worked on APIs"
-
-Aim for:
-- "Architected a REST API gateway in FastAPI serving 200k daily requests, adding rate limiting and JWT-based auth to enforce tenant isolation across 15 enterprise clients"
+2. Do NOT imply proficiency in a TIER 1 keyword if it is absent from both CV and Q&A answers.
+3. Do NOT remove specific factual detail — only add or restructure.
+4. You may reframe, reprioritize, and reorder existing experience freely.
+5. Preserve factual integrity at all times — the candidate must be able to speak to every claim in an interview.
 
 ========================
 OPTIMIZATION REPORT
 ========================
 
 In the optimization_report field, output a concise Markdown-formatted summary covering:
-- Role type inferred
-- Which answers were used and how they changed the CV
-- Which sections were expanded vs. de-emphasized
-- Any gaps that could not be addressed due to missing information
-- Overall positioning shift vs. the original CV
+- **Role type inferred** and seniority level
+- **ATS keyword coverage**: which TIER 1 keywords were successfully embedded, and which could not be addressed (gap audit result)
+- **Work experience changes**: which roles/bullets were expanded, rewritten, or reordered, and which Q&A answers drove each change
+- **Summary and Skills section changes**
+- **Overall positioning shift** vs. the original CV
 
 ========================
-FINAL SELF-CHECK (apply before outputting)
+FINAL SELF-CHECK (apply before outputting — fix any failure before returning)
 ========================
-Before returning your response, verify:
-- [ ] Every bullet in the output is AT LEAST as long as the corresponding original bullet.
-- [ ] Every concrete fact from the Q&A answers appears somewhere in the CV.
+
+Verify ALL of the following:
+
+ATS checks:
+- [ ] Every TIER 1 keyword the candidate has experience with appears at least once in the CV body using the exact JD string form.
+- [ ] The Summary contains the target job title and at least 5 TIER 1 keywords naturally embedded.
+- [ ] The Skills section has been updated to front-load JD-aligned skills using exact JD terminology.
+
+Work experience checks:
+- [ ] Every role section was touched (reordered, rewritten, or expanded — not left as-is).
+- [ ] Every bullet marked MUST EXPAND is longer and more specific than the original.
+- [ ] No bullet uses generic verbs ("responsible for", "worked on", "helped with", "involved in").
 - [ ] No bullet is a generic rephrasing of a more specific original (e.g. "Built APIs" replacing a detailed original).
-- [ ] The summary names the role type and 2–3 specific strengths aligned to the JD.
+- [ ] Every concrete fact from the Q&A answers appears somewhere in the CV.
 
-If any check fails, rewrite the offending bullet before outputting.
+Quality checks:
+- [ ] Every bullet contains: action verb + what + technology context + outcome/scale.
+- [ ] No bullet could apply to any candidate at any company (it must be specific to this person's experience).
+- [ ] The CV reads as written by the candidate, not assembled from a template.
+
+If any check fails, rewrite the offending section before outputting.
 """
 
 
