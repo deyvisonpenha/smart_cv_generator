@@ -52,22 +52,23 @@ Production uses OpenAI GPT-4o.
 
 ---
 
-### 📦 Structured Outputs with Pydantic
+### 🤖 Agentic Architecture
 
-All AI responses are validated using strict Pydantic models:
+The AI engine uses a multi-agent system built with a custom `agents` library to ensure high-quality, structured results:
 
-* `GapAnalysisResponse`
-* `CVGenerationResponse`
+*   **Gap Analyzer**: Compares the CV and Job Description to generate strategic clarification questions.
+*   **CV Strategist**: Rewrites the CV based on original data and user answers, following strict structural rules.
+*   **Structure Validator**: Ensures the generated Markdown contains all required sections.
+*   **Integrity Validator**: Verifies that no factual information was invented or removed.
+*   **Corrector**: Automatically fixes any violations found by the validators.
 
-Gap analysis uses:
+### 📦 Structured Outputs & Validation
 
-```python
-response_format={"type": "json_object"}
-```
+All AI interactions are strongly typed using **Pydantic v2**. Agents are configured with specific `output_type` models, ensuring that the backend always returns valid, structured data to the frontend without manual JSON parsing.
 
-This enforces valid JSON output, ensuring safe frontend integration.
-
-Markdown code fences are defensively handled before parsing.
+This architecture also allows for:
+*   **Multi-language Support**: Instructions and outputs are dynamically adjusted based on the `language` parameter.
+*   **Self-Correction**: If a generated CV fails validation, the Corrector agent is triggered to fix it before returning the result.
 
 ---
 
@@ -204,7 +205,8 @@ Request:
 ```json
 {
   "cv_text": "...",
-  "job_description": "..."
+  "job_description": "...",
+  "language": "en"
 }
 ```
 
@@ -236,7 +238,8 @@ Request:
   "job_description": "...",
   "user_answers": [
     { "question": "...", "answer": "..." }
-  ]
+  ],
+  "language": "en"
 }
 ```
 

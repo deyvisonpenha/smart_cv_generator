@@ -1,360 +1,323 @@
-from typing import List, Optional
-from pydantic import BaseModel, Field
-from openai import OpenAI, APIConnectionError
 import os
-import json
+from typing import List, Optional
+from pydantic import BaseModel
+from openai import AsyncOpenAI
+from agents import (
+    Agent,
+    Runner,
+    set_default_openai_client,
+    set_tracing_disabled,
+)
+from agents.exceptions import InputGuardrailTripwireTriggered
 
-# --- Pydantic Models for Structured Output ---
+# ============================================================
+# Disable tracing if no ENV api key
+# ============================================================
+if not os.getenv("OPENAI_API_KEY"):
+    set_tracing_disabled(True)
+
+# ============================================================
+# SUPPORTED LANGUAGES
+# ============================================================
+SUPPORTED_LANGUAGES = {
+    "en": "English",
+    "pt-br": "Brazilian Portuguese",
+    "es": "Spanish",
+    "de": "German",
+    "fr": "French",
+}
+
+# ============================================================
+# MODELS
+# ============================================================
+class ContactInfo(BaseModel):
+    name: str
+    title: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    linkedin: Optional[str] = None
+    portfolio: Optional[str] = None
 
 class GapAnalysisItem(BaseModel):
-    id: int
     question: str
-    context: str = Field(description="Why I am asking this")
+    reasoning: str
 
 class GapAnalysisResponse(BaseModel):
-    items: List[GapAnalysisItem]
+    gaps: List[GapAnalysisItem]
 
 class CVGenerationResponse(BaseModel):
     markdown_cv: str
-    optimization_report: str = Field(description="What was improved")
 
-# --- AI Engine Logic ---
+class StructureCheckOutput(BaseModel):
+    valid: bool
+    missing_sections: List[str]
+    reasoning: str
 
-def get_openai_client(api_key: Optional[str] = None) -> OpenAI:
-    """
-    Returns an OpenAI client configured based on environment and available keys.
-    Priority:
-    1. If api_key argument is provided -> Use OpenAI (Production or Dev).
-    2. If no key and ENV=production -> Error.
-    3. If no key and ENV=development (default) -> Use local Ollama.
-    """
+class IntegrityCheckOutput(BaseModel):
+    valid: bool
+    invented_terms: List[str]
+    reasoning: str
+
+
+# ============================================================
+# HEADER EXTRACTOR (LLM-based)
+# ============================================================
+async def extract_contact_info(cv_text: str) -> ContactInfo:
+    """Extract contact details from the top of the CV using a dedicated LLM agent."""
+
+    extractor = Agent(
+        name="Contact Extractor",
+        instructions="""
+You are a CV parser. Extract only the contact information from the CV text provided.
+
+Field rules:
+- name: the candidate's full name only — no title, no role, no extra words
+- title: the professional title or role (e.g. "Senior Full-Stack Engineer") — separate from name
+- email: email address if present, otherwise null
+- phone: phone number if present, otherwise null
+- location: city and country if present, otherwise null
+- linkedin: the linkedin.com/in/username path only (no https://, no www), otherwise null
+- portfolio: personal website or portfolio domain (NOT LinkedIn), otherwise null
+
+Do not invent or guess any values. Return null for fields not found.
+""",
+        output_type=ContactInfo,
+    )
+
+    # Only send the first ~600 chars — contact info is always at the top
+    result = await Runner.run(extractor, f"CV:\n{cv_text[:600]}")
+    return result.final_output
+
+
+def build_markdown_header(contact: ContactInfo) -> str:
+    """Build a clean pure-markdown header block from extracted contact info."""
+    lines = []
+
+    lines.append(f"# {contact.name}")
+
+    if contact.title:
+        lines.append(f"### {contact.title}")
+
+    lines.append("")
+
+    contact_parts = []
+    if contact.location:
+        contact_parts.append(f"📍 {contact.location}")
+    if contact.phone:
+        contact_parts.append(f"📞 {contact.phone}")
+    if contact.email:
+        contact_parts.append(f"✉️ [{contact.email}](mailto:{contact.email})")
+    if contact.linkedin:
+        contact_parts.append(f"🔗 [LinkedIn](https://{contact.linkedin})")
+    if contact.portfolio:
+        contact_parts.append(f"🌐 [{contact.portfolio}](https://{contact.portfolio})")
+
+    if contact_parts:
+        lines.append(" | ".join(contact_parts))
+
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# CLIENT FACTORY
+# ============================================================
+def get_client(api_key: Optional[str] = None) -> AsyncOpenAI:
     env = os.getenv("ENV", "development")
+    print(f"[DEBUG] ENV: {env}, api_key provided: {bool(api_key)}")
 
-    # 1. Priority: Passed API Key
     if api_key:
-        return OpenAI(api_key=api_key)
+        return AsyncOpenAI(api_key=api_key)
 
-    # 2. Production Restriction
     if env == "production":
         raise RuntimeError("API Key is required in production (via Header).")
 
-    # 3. Development Fallback: Ollama
-    return OpenAI(
+    return AsyncOpenAI(
         api_key="ollama",
         base_url="http://localhost:11434/v1",
     )
 
-def get_model_name(client: OpenAI) -> str:
-    """
-    Determines the model to use based on the client configuration.
-    """
-    # If base_url points to localhost (Ollama), use a local model
-    if "localhost" in str(client.base_url):
-        return "llama3:8b"
-    
-    # Otherwise (OpenAI), use GPT-4o
-    return "gpt-4o-2024-08-06"
 
-def analyze_gaps(cv_text: str, job_description: str, api_key: Optional[str] = None) -> List[GapAnalysisItem]:
-    """
-    Analyzes the gap between the CV and the Job Description.
-    Returns a list of questions to ask the user.
-    """
-    client = get_openai_client(api_key)
-    model = get_model_name(client)
-    
-    prompt = f"""
-    You are an expert senior technical recruiter conducting a targeted gap analysis.
+# ============================================================
+# AGENT FACTORY
+# ============================================================
+def build_agents(language_code: str = "en"):
+    language_name = SUPPORTED_LANGUAGES.get(language_code, "English")
 
-    Return ONLY valid JSON in this format:
-    {{
-      "items": [
-        {{
-          "id": 1,
-          "question": "...",
-          "context": "..."
-        }}
-      ]
-    }}
+    gap_agent = Agent(
+        name="Gap Analyzer",
+        instructions=f"""
+You are a CV gap analyzer. Compare the CV and job description.
+Generate 4–7 clarification questions to fill gaps between the candidate profile and the job requirements.
 
-    Compare the CV against the Job Description and identify gaps — skills, experiences, or signals that the
-    JD requires but the CV does not clearly demonstrate.
+Each question must target:
+- A specific technology or methodology mentioned in the job description
+- The project context where the candidate used it (or something similar)
+- The candidate's level of ownership (led, contributed, assisted)
+- A measurable outcome or improvement achieved
 
-    For each gap, write ONE targeted question designed to extract RICH, SPECIFIC context from the candidate
-    so that the answer can later be used to write a detailed, concrete CV bullet point.
+Also check if the CV is missing any contact information (email, phone, location, LinkedIn, portfolio).
+If any contact fields are missing, include a question asking the candidate to provide them.
 
-    Each question MUST ask for:
-    - The specific technology, methodology, or skill in question
-    - The company or project context where it was applied
-    - The candidate's level of ownership / scope of impact
-    - Quantified results or measurable outcomes if applicable
+LANGUAGE RULE: Write ALL questions and reasoning in {language_name}. No exceptions.
+""",
+        output_type=GapAnalysisResponse,
+    )
 
-    BAD question example: "Do you have experience with Kubernetes?"
-    GOOD question example: "Have you worked with Kubernetes in a production environment? If so, describe the infrastructure scale (number of nodes/services), your level of ownership (did you configure, maintain, or just consume it?), what company this was at, and any reliability or performance improvements you achieved."
+    cv_agent = Agent(
+        name="CV Strategist",
+        instructions=f"""
+You are an expert CV writer. Rewrite the CV using the original CV, the job description, and the candidate's clarification answers.
 
-    Generate between 4 and 7 questions. Focus only on gaps that materially affect the candidate's alignment
-    with the role — do not ask about things already clearly demonstrated in the CV.
+LANGUAGE RULE: Write ALL content — including every section heading — entirely in {language_name}. No exceptions. Do not mix languages.
 
-    Job Description:
-    {job_description}
+STRICT OUTPUT RULES:
+1. Do NOT include a name, title, email, phone, location, LinkedIn, or portfolio — the header is handled separately.
+2. Start your output DIRECTLY with the summary section heading.
+3. The CV body must contain exactly 4 sections in this order:
+   - A "Professional Summary" equivalent heading in {language_name}
+   - A "Key Skills" equivalent heading in {language_name}
+   - A "Professional Experience" equivalent heading in {language_name}
+   - An "Education" equivalent heading in {language_name}
+   Use ### for all section headings.
+4. No other sections are allowed.
+5. Preserve ALL factual data — never invent technologies, metrics, companies, or roles.
+6. Naturally reinforce terminology from the job description where it truthfully applies.
+7. Experience section format — each job entry MUST follow this structure exactly:
+   **Job Title — Company, Location**
+   MM/YYYY - MM/YYYY (or "Present")
+   - First bullet: responsibility or achievement with at least 28 words describing context and impact.
+   - Second bullet: responsibility or achievement with at least 28 words describing context and impact.
+   - Third bullet: responsibility or achievement with at least 28 words describing context and impact.
+   NEVER write experience as a prose paragraph. ALWAYS use markdown "- " bullet points under each job.
+8. Skills section must use short keyword groups only — no full sentences.
+9. Education section: degree name, institution, and dates only. No impact statements.
+""",
+        output_type=CVGenerationResponse,
+    )
 
-    CV Text:
-    {cv_text}
-    """
+    structure_guard = Agent(
+        name="Structure Validator",
+        instructions=f"""
+Validate that the markdown CV body contains exactly 4 sections:
+1. A professional summary section (heading varies by language: {language_name})
+2. A key skills section
+3. A professional experience section
+4. An education section
 
-    try:
-        completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant assisting with resume optimization."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
-    except APIConnectionError as e:
-        base_url = client.base_url
-        if "localhost" in str(base_url):
-            raise ConnectionError(f"Could not connect to Ollama at {base_url}. Please ensure Ollama is running (`ollama serve`). Original error: {str(e)}")
-        raise ConnectionError(f"Could not connect to AI Provider. Check your API key and network connection. Original error: {str(e)}")
-    
-    raw_output = completion.choices[0].message.content
-    
-    # Handle potential markdown code blocks or conversational text
-    raw_output = extract_json_content(raw_output)
+No extra sections allowed.
+Return valid=True only if all four sections are present and no extra sections exist.
+""",
+        output_type=StructureCheckOutput,
+    )
 
-    try:
-        parsed = GapAnalysisResponse.model_validate_json(raw_output)
-    except Exception as e:
-        raise ValueError(f"Failed to parse AI response: {str(e)}. Raw output: {raw_output}")
-    
-    return parsed.items
+    integrity_guard = Agent(
+        name="Integrity Validator",
+        instructions="""
+Compare the original CV and the generated CV body.
+Verify that:
+- No technologies or tools were invented
+- No metrics or percentages were fabricated
+- No experience entries or companies were removed
+- No job titles or roles were changed
 
-def generate_cv(cv_text: str, job_description: str, user_answers: List[dict], api_key: Optional[str] = None) -> CVGenerationResponse:
-    """
-    Generates an optimized CV based on original CV, JD, and user answers to gap analysis questions.
-    """
-    client = get_openai_client(api_key)
-    model = get_model_name(client)
-    
-    answers_text = "\n".join([
-        f"--- ANSWER {i+1} ---\nQ: {ans['question']}\nA: {ans['answer']}\n"
-        for i, ans in enumerate(user_answers)
-    ])
-    
-    prompt = f"""
-You are a senior technical recruiter and resume strategist specializing in ATS optimization and hiring manager engagement across multiple domains (Backend, Frontend, AI/ML, Data, DevOps, Product Engineering, Infrastructure, Startup roles).
+Return valid=True only if the generated CV faithfully and accurately represents the original.
+""",
+        output_type=IntegrityCheckOutput,
+    )
 
-Your task is to produce an optimized CV that passes ATS keyword screening AND compels a hiring manager to take action, by integrating the candidate's original experience WITH the new context from the Q&A answers.
+    corrector = Agent(
+        name="Corrector",
+        instructions=f"""
+Fix only the listed violations. Preserve all factual information from the original CV.
+Maintain the same language ({language_name}) and section structure throughout.
+Return only the corrected markdown body — do not include a header block.
+""",
+        output_type=CVGenerationResponse,
+    )
 
-Return ONLY valid JSON in this format:
-{{
-  "markdown_cv": "...",
-  "optimization_report": "..."
-}}
-
-========================
-INPUT DATA
-========================
-
-Job Description:
-{job_description}
-
-Original CV:
-{cv_text}
-
-Candidate Q&A — Answers to Gap Analysis Questions:
-{answers_text}
-
-========================
-STEP 1 — INTERNAL ANALYSIS (do NOT output any of this)
-========================
-
-Before writing a single word, perform these four internal analyses:
-
-A) ROLE DIAGNOSIS
-- Infer the primary role type (Backend, AI Engineer, Full-Stack, Data, DevOps, etc.)
-- Determine seniority level expected
-- Identify what a technical hiring manager scans for in the first 30 seconds
-
-B) ATS KEYWORD EXTRACTION
-Extract from the Job Description and build an internal checklist of:
-- TIER 1 (must appear): The exact job title, 6–8 must-have hard skills (exact strings as written in the JD — e.g. "Kubernetes" not "K8s", "RESTful APIs" not "REST", "PostgreSQL" not "Postgres" unless the JD uses the short form)
-- TIER 2 (should appear): Methodologies, frameworks, platforms (e.g. "CI/CD", "agile", "microservices", "Terraform")
-- TIER 3 (nice to have): Soft skills framed as competencies (e.g. "cross-functional collaboration", "stakeholder communication")
-You will use this checklist in the FINAL SELF-CHECK to verify keyword coverage.
-
-C) ANSWER FACT EXTRACTION
-Go through EACH Q&A answer and extract:
-- Every concrete technology, tool, framework, or platform name
-- Every project, company, or team reference
-- Every metric, scale, or outcome (numbers, percentages, user counts, uptime, latency, etc.)
-- Every ownership signal (led, owned, designed, architected, maintained, etc.)
-Map each extracted fact to the most relevant role or bullet in the original CV. Mark that bullet as MUST EXPAND.
-If an answer is empty, "N/A", or contains no concrete detail, skip it.
-If an answer contains ANY concrete detail, that detail MUST appear in the final CV.
-
-D) GAP AUDIT
-List which TIER 1 keywords from the JD are NOT currently present in the CV and CANNOT be added from the Q&A answers. These must be noted in the optimization_report as unaddressable gaps — do NOT invent or imply proficiency.
-
-========================
-STEP 2 — ATS KEYWORD INTEGRATION (mandatory before writing bullets)
-========================
-
-For every TIER 1 and TIER 2 keyword that the candidate legitimately has experience with (supported by CV or Q&A answers):
-
-1. Ensure it appears in the CV body using the EXACT string form from the JD.
-   - If the JD says "Kubernetes", write "Kubernetes" — not "k8s" or "container orchestration".
-   - If the JD says "TypeScript", write "TypeScript" — not just "JavaScript".
-   - You MAY include the abbreviation in parentheses after the full form if both forms are useful.
-
-2. The SUMMARY/PROFILE section must function as an ATS keyword magnet:
-   - It must contain the target job title (or closest equivalent the candidate qualifies for).
-   - It must naturally embed at least 5 TIER 1 keywords in 3–5 sentences.
-   - It must convey seniority, domain ownership, and a measurable strength signal.
-
-3. The SKILLS section must be updated to:
-   - List all TIER 1 and TIER 2 keywords the candidate has experience with, using exact JD terminology.
-   - Reorder or group skills so JD-aligned skills appear first.
-   - Remove or demote skills that are not relevant to this role (move to a secondary group if needed).
-
-========================
-STEP 3 — WORK EXPERIENCE REWRITE (apply to EVERY role, not just recent ones)
-========================
-
-You MUST touch every role section. This is not optional.
-
-For each role:
-
-1. REORDER bullets so the most JD-relevant achievements come first.
-
-2. REWRITE weak or vague bullets using JD vocabulary and the candidate's actual experience.
-   A bullet is weak if it:
-   - Uses generic verbs ("worked on", "helped with", "involved in", "responsible for")
-   - Omits the technology stack
-   - Has no outcome, metric, or scope signal
-   - Could apply to any candidate in any company
-
-3. EXPAND any bullet marked MUST EXPAND (from Step 1C) by weaving in the extracted Q&A facts:
-   - Company or project name
-   - Technology or methodology mentioned
-   - Scale, scope, or team size
-   - Measurable results or outcomes
-   The expanded bullet MUST be longer and more specific than the original — never shorter.
-
-4. CREATE new bullets for any Q&A facts that have no existing bullet to attach to.
-
-5. NEVER remove a bullet that contains specific, factual detail. Only remove genuinely redundant or placeholder bullets.
-
-TRANSFORMATION RULES:
-- BAD verb: "worked on" → GOOD verb: "architected", "engineered", "owned", "led", "designed", "built", "optimized", "shipped"
-- BAD scope: "improved performance" → GOOD scope: "reduced p99 API latency from 800ms to 120ms by introducing Redis caching and query indexing"
-- BAD technology reference: "used cloud tools" → GOOD reference: "deployed on AWS using ECS, RDS (PostgreSQL), and CloudWatch for observability"
-
-BULLET STRUCTURE (every bullet must contain all four):
-  [Strong action verb] + [what was built/owned/changed] + [technology context] + [outcome or scale]
-
-Example:
-  "Architected a multi-tenant REST API gateway in FastAPI serving 200k daily requests, implementing JWT-based auth and per-tenant rate limiting to enforce isolation across 15 enterprise clients — reducing unauthorized access incidents to zero post-launch."
-
-Bullets should be 1–3 lines. Each role must have 3–6 bullets after enrichment.
-
-========================
-STRICT INTEGRITY RULES
-========================
-
-1. Do NOT invent technologies, metrics, responsibilities, or experience not supported by the CV or answers.
-2. Do NOT imply proficiency in a TIER 1 keyword if it is absent from both CV and Q&A answers.
-3. Do NOT remove specific factual detail — only add or restructure.
-4. You may reframe, reprioritize, and reorder existing experience freely.
-5. Preserve factual integrity at all times — the candidate must be able to speak to every claim in an interview.
-
-========================
-OPTIMIZATION REPORT
-========================
-
-In the optimization_report field, output a concise Markdown-formatted summary covering:
-- **Role type inferred** and seniority level
-- **ATS keyword coverage**: which TIER 1 keywords were successfully embedded, and which could not be addressed (gap audit result)
-- **Work experience changes**: which roles/bullets were expanded, rewritten, or reordered, and which Q&A answers drove each change
-- **Summary and Skills section changes**
-- **Overall positioning shift** vs. the original CV
-
-========================
-FINAL SELF-CHECK (apply before outputting — fix any failure before returning)
-========================
-
-Verify ALL of the following:
-
-ATS checks:
-- [ ] Every TIER 1 keyword the candidate has experience with appears at least once in the CV body using the exact JD string form.
-- [ ] The Summary contains the target job title and at least 5 TIER 1 keywords naturally embedded.
-- [ ] The Skills section has been updated to front-load JD-aligned skills using exact JD terminology.
-
-Work experience checks:
-- [ ] Every role section was touched (reordered, rewritten, or expanded — not left as-is).
-- [ ] Every bullet marked MUST EXPAND is longer and more specific than the original.
-- [ ] No bullet uses generic verbs ("responsible for", "worked on", "helped with", "involved in").
-- [ ] No bullet is a generic rephrasing of a more specific original (e.g. "Built APIs" replacing a detailed original).
-- [ ] Every concrete fact from the Q&A answers appears somewhere in the CV.
-
-Quality checks:
-- [ ] Every bullet contains: action verb + what + technology context + outcome/scale.
-- [ ] No bullet could apply to any candidate at any company (it must be specific to this person's experience).
-- [ ] The CV reads as written by the candidate, not assembled from a template.
-
-If any check fails, rewrite the offending section before outputting.
-"""
+    return gap_agent, cv_agent, structure_guard, integrity_guard, corrector
 
 
-    try:
-        completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "You are an expert resume writer."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,        # it can construct richer, more natural professional language
-            response_format={"type": "json_object"},
-        )
-    except APIConnectionError as e:
-        base_url = client.base_url
-        if "localhost" in str(base_url):
-            raise ConnectionError(f"Could not connect to Ollama at {base_url}. Please ensure Ollama is running (`ollama serve`). Original error: {str(e)}")
-        raise ConnectionError(f"Could not connect to AI Provider. Check your API key and network connection. Original error: {str(e)}")
-    
-    raw_output = completion.choices[0].message.content
+# ============================================================
+# ASYNC PUBLIC FUNCTIONS
+# ============================================================
+async def analyze_gaps(
+    cv_text: str,
+    job_description: str,
+    api_key: Optional[str] = None,
+    language: str = "en",
+) -> List[GapAnalysisItem]:
+    client = get_client(api_key)
+    set_default_openai_client(client)
 
-    # Handle potential markdown code blocks or conversational text
-    raw_output = extract_json_content(raw_output)
+    gap_agent, _, _, _, _ = build_agents(language)
 
-    try:
-        parsed = CVGenerationResponse.model_validate_json(raw_output)
-    except Exception as e:
-        raise ValueError(f"Failed to parse AI response: {str(e)}. Raw output: {raw_output}")
-    
+    input_text = (
+        f"CV:\n{cv_text}\n\n"
+        f"Job Description:\n{job_description}"
+    )
 
-    return parsed
+    result = await Runner.run(gap_agent, input_text)
+    return result.final_output.gaps
 
-def extract_json_content(text: str) -> str:
-    """
-    Robustly extracts a JSON object from text, handling markdown blocks and preambles.
-    Criteria:
-    1. If markdown block exists, take content inside.
-    2. Find first '{' and last '}' to isolate JSON object.
-    3. Return valid JSON string or original text if not found.
-    """
-    text = text.strip()
-    
-    if "```json" in text:
-        text = text.split("```json")[1].split("```")[0].strip()
-    elif "```" in text:
-        text = text.split("```")[1].split("```")[0].strip()
-        
-    start_idx = text.find('{')
-    end_idx = text.rfind('}')
-    
-    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-        return text[start_idx : end_idx + 1]
-    
-    return text
+
+async def generate_cv(
+    cv_text: str,
+    job_description: str,
+    user_answers: List[dict],
+    api_key: Optional[str] = None,
+    language: str = "en",
+    max_retries: int = 2,
+) -> CVGenerationResponse:
+    client = get_client(api_key)
+    set_default_openai_client(client)
+
+    _, cv_agent, _, _, corrector = build_agents(language)
+
+    # Extract contact info via LLM and build clean markdown header
+    contact = await extract_contact_info(cv_text)
+    header_block = build_markdown_header(contact)
+
+    answers_text = "\n".join(
+        [f"Q: {a['question']}\nA: {a['answer']}" for a in user_answers]
+    )
+
+    input_text = (
+        f"Original CV:\n{cv_text}\n\n"
+        f"Job Description:\n{job_description}\n\n"
+        f"Candidate Clarifications:\n{answers_text}"
+    )
+
+    last_body = ""
+    attempt = 0
+    while attempt <= max_retries:
+        try:
+            result = await Runner.run(cv_agent, input_text)
+            last_body = result.final_output.markdown_cv
+            # Prepend clean header to LLM-generated body
+            final_markdown = header_block + last_body
+            return CVGenerationResponse(markdown_cv=final_markdown)
+        except InputGuardrailTripwireTriggered as e:
+            attempt += 1
+            if attempt > max_retries:
+                break
+            correction = await Runner.run(
+                corrector,
+                (
+                    f"Generated CV body:\n{last_body}\n\n"
+                    f"Violations to fix:\n{str(e)}\n\n"
+                    f"Original CV:\n{cv_text}"
+                ),
+            )
+            last_body = correction.final_output.markdown_cv
+            input_text = (
+                f"Previous version (correct the violations):\n{last_body}\n\n"
+                f"Original CV:\n{cv_text}\n\n"
+                f"Job Description:\n{job_description}\n\n"
+                f"Candidate Clarifications:\n{answers_text}"
+            )
+
+    raise Exception("CV generation failed after maximum retries.")

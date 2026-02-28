@@ -1,6 +1,7 @@
-fastapi
-uvicorn
-python-multipart
-pymupdf
-openai
-pydantic
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+pymupdf>=1.23.0
+openai>=1.14.0
+pydantic>=2.6.0
+openai-agents
