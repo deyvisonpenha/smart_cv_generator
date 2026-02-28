@@ -1,7 +1,6 @@
 export interface GapAnalysisItem {
-    id: number;
     question: string;
-    context: string;
+    reasoning: string;
 }
 
 export interface UserAnswer {

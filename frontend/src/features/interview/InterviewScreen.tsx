@@ -25,7 +25,7 @@ function TypingIndicator() {
 }
 
 export function InterviewScreen() {
-    const { gaps, addUserAnswer, userAnswers, setGeneratedCV, setStage, setError, cvText, jobDescription } = useAppStore();
+    const { gaps, addUserAnswer, userAnswers, setGeneratedCV, setStage, setError, cvText, jobDescription, language } = useAppStore();
     const { getKey } = useVault();
 
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -63,7 +63,13 @@ export function InterviewScreen() {
             setIsGenerating(true);
             const apiKey = getKey();
             if (!apiKey) console.warn("Generating without API Key — falling back to Local LLM (Ollama)");
-            const result = await ApiClient.generateCV(cvText, jobDescription, userAnswers, apiKey);
+            const result = await ApiClient.generateCV(
+                cvText,
+                jobDescription,
+                userAnswers,
+                apiKey,
+                language
+            );
             setGeneratedCV(result);
             setStage('READY');
         } catch (e: any) {
@@ -137,7 +143,7 @@ export function InterviewScreen() {
                                 <div className="glass rounded-2xl rounded-tl-none px-4 py-3">
                                     <p className="text-sm font-medium text-white">{currentGap.question}</p>
                                 </div>
-                                <p className="text-[11px] text-white/25 ml-2 italic">{currentGap.context}</p>
+                                <p className="text-[11px] text-white/25 ml-2 italic">{currentGap.reasoning}</p>
                             </div>
                         </div>
                     )}

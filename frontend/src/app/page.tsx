@@ -52,7 +52,9 @@ export default function Home() {
         setError,
         cvText,
         jobDescription,
-        setGaps
+        setGaps,
+        language,
+        setLanguage
     } = useAppStore();
 
     const { getKey, isLocked } = useVault();
@@ -62,8 +64,7 @@ export default function Home() {
             if (stage === 'ANALYZING') {
                 try {
                     const apiKey = getKey();
-                    if (!apiKey) console.warn("Analyzing without API Key — falling back to Local LLM (Ollama)");
-                    const gaps = await ApiClient.analyzeGaps(cvText, jobDescription, apiKey);
+                    const gaps = await ApiClient.analyzeGaps(cvText, jobDescription, apiKey, language);
                     setGaps(gaps);
                     setStage('INTERVIEW');
                 } catch (e: any) {
@@ -73,7 +74,7 @@ export default function Home() {
             }
         };
         runAnalysis();
-    }, [stage, cvText, jobDescription, getKey, isLocked, setStage, setGaps, setError]);
+    }, [stage, cvText, jobDescription, getKey, isLocked, setStage, setGaps, setError, language]);
 
     const renderStage = () => {
         switch (stage) {
@@ -139,6 +140,22 @@ export default function Home() {
                             </div>
                         </div>
                         <span className="font-bold text-lg text-white tracking-tight">SmartCV</span>
+                    </div>
+
+                    {/* Language Selector */}
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-indigo-500/50 transition-colors">
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest hidden xs:block">Lang</span>
+                        <select
+                            value={language}
+                            onChange={(e) => setLanguage(e.target.value)}
+                            className="bg-transparent text-sm text-white font-medium outline-none cursor-pointer"
+                        >
+                            <option value="pt-br" className="bg-[#0f1115]">Português</option>
+                            <option value="en" className="bg-[#0f1115]">English</option>
+                            <option value="es" className="bg-[#0f1115]">Español</option>
+                            <option value="fr" className="bg-[#0f1115]">Français</option>
+                            <option value="de" className="bg-[#0f1115]">Deutsch</option>
+                        </select>
                     </div>
 
                     <div className="flex items-center gap-4">

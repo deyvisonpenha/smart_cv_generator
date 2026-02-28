@@ -45,15 +45,20 @@ export class ApiClient {
         return this.request<{ text: string }>('/extract-text', 'POST', formData, null, true);
     }
 
-    static async analyzeGaps(cvText: string, jobDescription: string, apiKey: string | null): Promise<GapAnalysisItem[]> {
-        return this.request<GapAnalysisItem[]>('/analyze-gaps', 'POST', { cv_text: cvText, job_description: jobDescription }, apiKey);
+    static async analyzeGaps(cvText: string, jobDescription: string, apiKey: string | null, language: string): Promise<GapAnalysisItem[]> {
+        return this.request<GapAnalysisItem[]>('/analyze-gaps', 'POST', {
+            cv_text: cvText,
+            job_description: jobDescription,
+            language
+        }, apiKey);
     }
 
-    static async generateCV(cvText: string, jobDescription: string, userAnswers: UserAnswer[], apiKey: string | null): Promise<CVGenerationResponse> {
+    static async generateCV(cvText: string, jobDescription: string, userAnswers: UserAnswer[], apiKey: string | null, language: string): Promise<CVGenerationResponse> {
         return this.request<CVGenerationResponse>('/generate-cv', 'POST', {
             cv_text: cvText,
             job_description: jobDescription,
-            user_answers: userAnswers
+            user_answers: userAnswers,
+            language
         }, apiKey);
     }
 }

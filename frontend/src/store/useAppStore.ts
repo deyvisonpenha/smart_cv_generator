@@ -8,6 +8,7 @@ interface AppState {
     gaps: GapAnalysisItem[];
     userAnswers: UserAnswer[];
     generatedCV: CVGenerationResponse | null;
+    language: string;
     error: string | null;
 
     // Actions
@@ -17,6 +18,7 @@ interface AppState {
     setGaps: (gaps: GapAnalysisItem[]) => void;
     addUserAnswer: (answer: UserAnswer) => void;
     setGeneratedCV: (result: CVGenerationResponse) => void;
+    setLanguage: (lang: string) => void;
     setError: (error: string | null) => void;
     reset: () => void;
 }
@@ -28,6 +30,7 @@ export const useAppStore = create<AppState>((set) => ({
     gaps: [],
     userAnswers: [],
     generatedCV: null,
+    language: 'pt-br',
     error: null,
 
     setStage: (stage) => set({ stage }),
@@ -37,6 +40,7 @@ export const useAppStore = create<AppState>((set) => ({
     addUserAnswer: (answer) =>
         set((state) => ({ userAnswers: [...state.userAnswers, answer] })),
     setGeneratedCV: (result) => set({ generatedCV: result }),
+    setLanguage: (language) => set({ language }),
     setError: (error) => set({ error }),
     reset: () =>
         set({
@@ -46,6 +50,7 @@ export const useAppStore = create<AppState>((set) => ({
             gaps: [],
             userAnswers: [],
             generatedCV: null,
+            language: 'en',
             error: null,
         }),
 }));
