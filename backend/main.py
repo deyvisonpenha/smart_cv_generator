@@ -10,7 +10,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from pdf_processor import extract_text_from_pdf
-from ai_engine import analyze_gaps, generate_cv, GapAnalysisItem, CVGenerationResponse
+from ai_engine import analyze_gaps, generate_cv, GapAnalysisItem, CVGenerationResponse, PROVIDER_CONFIG
 
 app = FastAPI(title="SmartCV-Adjuster API", version="1.0.0")
 
@@ -35,8 +35,11 @@ app.add_middleware(
 # ================= API KEY DEPENDENCY =======================
 # ============================================================
 
-async def get_api_key(x_model_api_key: Optional[str] = Header(None)):
-    return x_model_api_key
+async def get_api_key(
+    x_model_api_key: Optional[str] = Header(None),
+    x_model_provider: Optional[str] = Header(None),
+):
+    return x_model_api_key, x_model_provider
 
 
 # ============================================================
@@ -83,14 +86,21 @@ async def extract_text_endpoint(
 @app.post("/analyze-gaps", response_model=List[GapAnalysisItem])
 async def analyze_gaps_endpoint(
     request: AnalyzeGapsRequest,
-    api_key: Optional[str] = Depends(get_api_key)
+    api_auth: tuple = Depends(get_api_key)
 ):
+    api_key, provider = api_auth
+    provider = provider or "openai"
+
+    if provider not in PROVIDER_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
+
     try:
         gaps = await analyze_gaps(
             cv_text=request.cv_text,
             job_description=request.job_description,
-            api_key=api_key,          # ← correto
+            api_key=api_key,
             language=request.language,
+            provider=provider
         )
         return gaps
     except RuntimeError as e:
@@ -102,15 +112,22 @@ async def analyze_gaps_endpoint(
 @app.post("/generate-cv", response_model=CVGenerationResponse)
 async def generate_cv_endpoint(
     request: GenerateCVRequest,
-    api_key: Optional[str] = Depends(get_api_key)
+    api_auth: tuple = Depends(get_api_key)
 ):
+    api_key, provider = api_auth
+    provider = provider or "openai"
+
+    if provider not in PROVIDER_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
+
     try:
         result = await generate_cv(
             cv_text=request.cv_text,
             job_description=request.job_description,
             user_answers=[{"question": a.question, "answer": a.answer} for a in request.user_answers],
-            api_key=api_key,          # ← correto
+            api_key=api_key,
             language=request.language,
+            provider=provider
         )
         return result
     except RuntimeError as e:

@@ -7,6 +7,7 @@ from agents import (
     Runner,
     set_default_openai_client,
     set_tracing_disabled,
+    set_default_openai_api,
 )
 from agents.exceptions import InputGuardrailTripwireTriggered
 
@@ -26,6 +27,27 @@ SUPPORTED_LANGUAGES = {
     "de": "German",
     "fr": "French",
 }
+
+# ============================================================
+# PROVIDER CONFIG
+# ============================================================
+PROVIDER_CONFIG = {
+    "openai": {
+        "base_url": None,
+        "default_model": "gpt-4o",
+    },
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "default_model": "gemini-2.5-flash",
+    },
+    "ollama": {
+        "base_url": "http://localhost:11434/v1",
+        "default_model": "llama3.2",
+    },
+}
+
+# Ensure agents library uses standard chat completions (Gemini/Ollama compatibility)
+set_default_openai_api("chat_completions")
 
 # ============================================================
 # MODELS
@@ -63,11 +85,12 @@ class IntegrityCheckOutput(BaseModel):
 # ============================================================
 # HEADER EXTRACTOR (LLM-based)
 # ============================================================
-async def extract_contact_info(cv_text: str) -> ContactInfo:
+async def extract_contact_info(cv_text: str, model: str = "gpt-4o") -> ContactInfo:
     """Extract contact details from the top of the CV using a dedicated LLM agent."""
 
     extractor = Agent(
         name="Contact Extractor",
+        model=model,
         instructions="""
 You are a CV parser. Extract only the contact information from the CV text provided.
 
@@ -124,30 +147,35 @@ def build_markdown_header(contact: ContactInfo) -> str:
 # ============================================================
 # CLIENT FACTORY
 # ============================================================
-def get_client(api_key: Optional[str] = None) -> AsyncOpenAI:
+def get_client(api_key: Optional[str] = None, provider: str = "openai") -> AsyncOpenAI:
     env = os.getenv("ENV", "development")
-    print(f"[DEBUG] ENV: {env}, api_key provided: {bool(api_key)}")
+    print(f"[DEBUG] ENV: {env}, provider: {provider}, api_key provided: {bool(api_key)}")
+
+    config = PROVIDER_CONFIG.get(provider, PROVIDER_CONFIG["openai"])
 
     if api_key:
-        return AsyncOpenAI(api_key=api_key)
+        return AsyncOpenAI(api_key=api_key, base_url=config["base_url"])
 
     if env == "production":
         raise RuntimeError("API Key is required in production (via Header).")
 
+    # Fallback dev: Ollama
+    ollama_config = PROVIDER_CONFIG["ollama"]
     return AsyncOpenAI(
         api_key="ollama",
-        base_url="http://localhost:11434/v1",
+        base_url=ollama_config["base_url"],
     )
 
 
 # ============================================================
 # AGENT FACTORY
 # ============================================================
-def build_agents(language_code: str = "en"):
+def build_agents(language_code: str = "en", model: str = "gpt-4o"):
     language_name = SUPPORTED_LANGUAGES.get(language_code, "English")
 
     gap_agent = Agent(
         name="Gap Analyzer",
+        model=model,
         instructions=f"""
 You are a CV gap analyzer. Compare the CV and job description.
 Generate 4–7 clarification questions to fill gaps between the candidate profile and the job requirements.
@@ -168,6 +196,7 @@ LANGUAGE RULE: Write ALL questions and reasoning in {language_name}. No exceptio
 
     cv_agent = Agent(
         name="CV Strategist",
+        model=model,
         instructions=f"""
 You are an expert CV writer. Rewrite the CV using the original CV, the job description, and the candidate's clarification answers.
 
@@ -200,6 +229,7 @@ STRICT OUTPUT RULES:
 
     structure_guard = Agent(
         name="Structure Validator",
+        model=model,
         instructions=f"""
 Validate that the markdown CV body contains exactly 4 sections:
 1. A professional summary section (heading varies by language: {language_name})
@@ -215,6 +245,7 @@ Return valid=True only if all four sections are present and no extra sections ex
 
     integrity_guard = Agent(
         name="Integrity Validator",
+        model=model,
         instructions="""
 Compare the original CV and the generated CV body.
 Verify that:
@@ -230,6 +261,7 @@ Return valid=True only if the generated CV faithfully and accurately represents 
 
     corrector = Agent(
         name="Corrector",
+        model=model,
         instructions=f"""
 Fix only the listed violations. Preserve all factual information from the original CV.
 Maintain the same language ({language_name}) and section structure throughout.
@@ -249,11 +281,13 @@ async def analyze_gaps(
     job_description: str,
     api_key: Optional[str] = None,
     language: str = "en",
+    provider: str = "openai",
 ) -> List[GapAnalysisItem]:
-    client = get_client(api_key)
+    client = get_client(api_key, provider)
     set_default_openai_client(client)
 
-    gap_agent, _, _, _, _ = build_agents(language)
+    model = PROVIDER_CONFIG.get(provider, PROVIDER_CONFIG["openai"])["default_model"]
+    gap_agent, _, _, _, _ = build_agents(language, model)
 
     input_text = (
         f"CV:\n{cv_text}\n\n"
@@ -270,15 +304,17 @@ async def generate_cv(
     user_answers: List[dict],
     api_key: Optional[str] = None,
     language: str = "en",
+    provider: str = "openai",
     max_retries: int = 2,
 ) -> CVGenerationResponse:
-    client = get_client(api_key)
+    client = get_client(api_key, provider)
     set_default_openai_client(client)
 
-    _, cv_agent, _, _, corrector = build_agents(language)
+    model = PROVIDER_CONFIG.get(provider, PROVIDER_CONFIG["openai"])["default_model"]
+    _, cv_agent, _, _, corrector = build_agents(language, model)
 
     # Extract contact info via LLM and build clean markdown header
-    contact = await extract_contact_info(cv_text)
+    contact = await extract_contact_info(cv_text, model)
     header_block = build_markdown_header(contact)
 
     answers_text = "\n".join(

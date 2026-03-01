@@ -9,6 +9,7 @@ interface AppState {
     userAnswers: UserAnswer[];
     generatedCV: CVGenerationResponse | null;
     language: string;
+    provider: string;
     error: string | null;
 
     // Actions
@@ -19,6 +20,7 @@ interface AppState {
     addUserAnswer: (answer: UserAnswer) => void;
     setGeneratedCV: (result: CVGenerationResponse) => void;
     setLanguage: (lang: string) => void;
+    setProvider: (provider: string) => void;
     setError: (error: string | null) => void;
     reset: () => void;
 }
@@ -31,6 +33,7 @@ export const useAppStore = create<AppState>((set) => ({
     userAnswers: [],
     generatedCV: null,
     language: 'pt-br',
+    provider: 'openai',
     error: null,
 
     setStage: (stage) => set({ stage }),
@@ -41,6 +44,7 @@ export const useAppStore = create<AppState>((set) => ({
         set((state) => ({ userAnswers: [...state.userAnswers, answer] })),
     setGeneratedCV: (result) => set({ generatedCV: result }),
     setLanguage: (language) => set({ language }),
+    setProvider: (provider) => set({ provider }),
     setError: (error) => set({ error }),
     reset: () =>
         set({
@@ -51,6 +55,7 @@ export const useAppStore = create<AppState>((set) => ({
             userAnswers: [],
             generatedCV: null,
             language: 'en',
+            provider: 'openai',
             error: null,
         }),
 }));

@@ -25,7 +25,7 @@ function TypingIndicator() {
 }
 
 export function InterviewScreen() {
-    const { gaps, addUserAnswer, userAnswers, setGeneratedCV, setStage, setError, cvText, jobDescription, language } = useAppStore();
+    const { gaps, addUserAnswer, userAnswers, setGeneratedCV, setStage, setError, cvText, jobDescription, language, provider } = useAppStore();
     const { getKey } = useVault();
 
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -60,15 +60,17 @@ export function InterviewScreen() {
 
     const handleGenerate = async () => {
         try {
+            setError(null);
             setIsGenerating(true);
-            const apiKey = getKey();
+            const apiKey = getKey(provider);
             if (!apiKey) console.warn("Generating without API Key — falling back to Local LLM (Ollama)");
             const result = await ApiClient.generateCV(
                 cvText,
                 jobDescription,
                 userAnswers,
                 apiKey,
-                language
+                language,
+                provider
             );
             setGeneratedCV(result);
             setStage('READY');

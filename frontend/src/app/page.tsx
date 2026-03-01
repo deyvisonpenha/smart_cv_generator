@@ -54,7 +54,8 @@ export default function Home() {
         jobDescription,
         setGaps,
         language,
-        setLanguage
+        setLanguage,
+        provider
     } = useAppStore();
 
     const { getKey, isLocked } = useVault();
@@ -63,8 +64,9 @@ export default function Home() {
         const runAnalysis = async () => {
             if (stage === 'ANALYZING') {
                 try {
-                    const apiKey = getKey();
-                    const gaps = await ApiClient.analyzeGaps(cvText, jobDescription, apiKey, language);
+                    setError(null);
+                    const apiKey = getKey(provider);
+                    const gaps = await ApiClient.analyzeGaps(cvText, jobDescription, apiKey, language, provider);
                     setGaps(gaps);
                     setStage('INTERVIEW');
                 } catch (e: any) {

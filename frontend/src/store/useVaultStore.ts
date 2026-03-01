@@ -8,21 +8,21 @@ interface VaultState {
     error: string | null;
 
     // Actions
-    init: () => void;
-    saveKey: (apiKey: string, password: string) => Promise<void>;
-    unlockVault: (password: string) => Promise<boolean>;
-    getKey: () => string | null;
-    clearVault: () => void;
-    lockVault: () => void;
+    init: (provider: string) => void;
+    saveKey: (apiKey: string, password: string, provider: string) => Promise<void>;
+    unlockVault: (password: string, provider: string) => Promise<boolean>;
+    getKey: (provider: string) => string | null;
+    clearVault: (provider: string) => void;
+    lockVault: (provider: string) => void;
     setSettingsOpen: (open: boolean) => void;
 }
 
-const STORAGE_KEY = 'smartcv_vault';
+const getStorageKey = (provider: string) => `smartcv_vault_${provider}`;
 const CACHE_DURATION_MS = 1000 * 60 * 30; // 30 minutes
 
-// Secure memory storage (outside Zustand state to prevent exposure in devtools)
-let memoryKey: string | null = null;
-let memoryExpiration: number | null = null;
+// Secure memory storage per provider
+let memoryKeys: Record<string, string | null> = {};
+let memoryExpirations: Record<string, number | null> = {};
 
 export const useVaultStore = create<VaultState>((set, get) => ({
     isLocked: true,
@@ -30,21 +30,22 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     isSettingsOpen: false,
     error: null,
 
-    init: () => {
+    init: (provider: string) => {
         if (typeof window !== 'undefined') {
-            const hasVault = !!localStorage.getItem(STORAGE_KEY);
-            set({ hasVault });
+            const hasVault = !!localStorage.getItem(getStorageKey(provider));
+            const isLocked = !memoryKeys[provider];
+            set({ hasVault, isLocked });
         }
     },
 
-    saveKey: async (apiKey, password) => {
+    saveKey: async (apiKey, password, provider) => {
         try {
             set({ error: null });
             const encrypted = await encryptSecret(apiKey, password);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(encrypted));
+            localStorage.setItem(getStorageKey(provider), JSON.stringify(encrypted));
 
-            memoryKey = apiKey;
-            memoryExpiration = Date.now() + CACHE_DURATION_MS;
+            memoryKeys[provider] = apiKey;
+            memoryExpirations[provider] = Date.now() + CACHE_DURATION_MS;
 
             set({ hasVault: true, isLocked: false });
         } catch (e) {
@@ -53,12 +54,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         }
     },
 
-    unlockVault: async (password) => {
+    unlockVault: async (password, provider) => {
         try {
             set({ error: null });
-            const stored = localStorage.getItem(STORAGE_KEY);
+            const stored = localStorage.getItem(getStorageKey(provider));
             if (!stored) {
-                set({ error: 'No vault found.' });
+                set({ error: 'No vault found for this provider.' });
                 return false;
             }
 
@@ -67,39 +68,37 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
             if (!decryptedKey) throw new Error("Decrypted empty key");
 
-            memoryKey = decryptedKey;
-            memoryExpiration = Date.now() + CACHE_DURATION_MS;
+            memoryKeys[provider] = decryptedKey;
+            memoryExpirations[provider] = Date.now() + CACHE_DURATION_MS;
 
             set({ isLocked: false, error: null });
             return true;
         } catch (e) {
-            memoryKey = null;
+            memoryKeys[provider] = null;
             set({ isLocked: true, error: 'Incorrect password.' });
             return false;
         }
     },
 
-    getKey: () => {
-        const { isLocked } = get();
-        if (isLocked) return null;
-        if (memoryKey && memoryExpiration && Date.now() > memoryExpiration) {
+    getKey: (provider: string) => {
+        if (memoryKeys[provider] && memoryExpirations[provider] && Date.now() > (memoryExpirations[provider] || 0)) {
             // Expired key safety check
-            get().lockVault();
+            get().lockVault(provider);
             return null;
         }
-        return memoryKey;
+        return memoryKeys[provider] || null;
     },
 
-    lockVault: () => {
-        memoryKey = null;
-        memoryExpiration = null;
+    lockVault: (provider: string) => {
+        memoryKeys[provider] = null;
+        memoryExpirations[provider] = null;
         set({ isLocked: true });
     },
 
-    clearVault: () => {
-        localStorage.removeItem(STORAGE_KEY);
-        memoryKey = null;
-        memoryExpiration = null;
+    clearVault: (provider: string) => {
+        localStorage.removeItem(getStorageKey(provider));
+        memoryKeys[provider] = null;
+        memoryExpirations[provider] = null;
         set({ hasVault: false, isLocked: true, error: null });
     },
 
