@@ -1,6 +1,7 @@
+import json
 import os
 from typing import List, Optional
-from pydantic import BaseModel
+
 from openai import AsyncOpenAI
 from agents import (
     Agent,
@@ -10,6 +11,10 @@ from agents import (
     set_default_openai_api,
 )
 from agents.exceptions import InputGuardrailTripwireTriggered
+from pydantic import BaseModel
+
+from schemas.cv import CVData, ContactInfo
+from templates import get_template
 
 # ============================================================
 # Disable tracing if no ENV api key
@@ -46,102 +51,31 @@ PROVIDER_CONFIG = {
     },
 }
 
-# Ensure agents library uses standard chat completions (Gemini/Ollama compatibility)
+# Ensure agents library uses standard chat completions (Gemini/Ollama compat)
 set_default_openai_api("chat_completions")
 
 # ============================================================
-# MODELS
+# INTERNAL MODELS (used only inside ai_engine)
 # ============================================================
-class ContactInfo(BaseModel):
-    name: str
-    title: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    location: Optional[str] = None
-    linkedin: Optional[str] = None
-    portfolio: Optional[str] = None
-
 class GapAnalysisItem(BaseModel):
     question: str
     reasoning: str
 
+
 class GapAnalysisResponse(BaseModel):
     gaps: List[GapAnalysisItem]
 
-class CVGenerationResponse(BaseModel):
-    markdown_cv: str
 
 class StructureCheckOutput(BaseModel):
     valid: bool
     missing_sections: List[str]
     reasoning: str
 
+
 class IntegrityCheckOutput(BaseModel):
     valid: bool
     invented_terms: List[str]
     reasoning: str
-
-
-# ============================================================
-# HEADER EXTRACTOR (LLM-based)
-# ============================================================
-async def extract_contact_info(cv_text: str, model: str = "gpt-4o") -> ContactInfo:
-    """Extract contact details from the top of the CV using a dedicated LLM agent."""
-
-    extractor = Agent(
-        name="Contact Extractor",
-        model=model,
-        instructions="""
-You are a CV parser. Extract only the contact information from the CV text provided.
-
-Field rules:
-- name: the candidate's full name only — no title, no role, no extra words
-- title: the professional title or role (e.g. "Senior Full-Stack Engineer") — separate from name
-- email: email address if present, otherwise null
-- phone: phone number if present, otherwise null
-- location: city and country if present, otherwise null
-- linkedin: the linkedin.com/in/username path only (no https://, no www), otherwise null
-- portfolio: personal website or portfolio domain (NOT LinkedIn), otherwise null
-
-Do not invent or guess any values. Return null for fields not found.
-""",
-        output_type=ContactInfo,
-    )
-
-    # Only send the first ~600 chars — contact info is always at the top
-    result = await Runner.run(extractor, f"CV:\n{cv_text[:600]}")
-    return result.final_output
-
-
-def build_markdown_header(contact: ContactInfo) -> str:
-    """Build a clean pure-markdown header block from extracted contact info."""
-    lines = []
-
-    lines.append(f"# {contact.name}")
-
-    if contact.title:
-        lines.append(f"### {contact.title}")
-
-    lines.append("")
-
-    contact_parts = []
-    if contact.location:
-        contact_parts.append(f"📍 {contact.location}")
-    if contact.phone:
-        contact_parts.append(f"📞 {contact.phone}")
-    if contact.email:
-        contact_parts.append(f"✉️ [{contact.email}](mailto:{contact.email})")
-    if contact.linkedin:
-        contact_parts.append(f"🔗 [LinkedIn](https://{contact.linkedin})")
-    if contact.portfolio:
-        contact_parts.append(f"🌐 [{contact.portfolio}](https://{contact.portfolio})")
-
-    if contact_parts:
-        lines.append(" | ".join(contact_parts))
-
-    lines.append("")
-
-    return "\n".join(lines)
 
 
 # ============================================================
@@ -170,7 +104,7 @@ def get_client(api_key: Optional[str] = None, provider: str = "openai") -> Async
 # ============================================================
 # AGENT FACTORY
 # ============================================================
-def build_agents(language_code: str = "en", model: str = "gpt-4o"):
+def build_agents(language_code: str = "en", model: str = "gpt-4o", template=None):
     language_name = SUPPORTED_LANGUAGES.get(language_code, "English")
 
     gap_agent = Agent(
@@ -194,51 +128,65 @@ LANGUAGE RULE: Write ALL questions and reasoning in {language_name}. No exceptio
         output_type=GapAnalysisResponse,
     )
 
+    # Build CV agent instructions with template rules + few-shot example
+    if template is None:
+        from templates import get_template as _get_template
+        template = _get_template("classic", language_code)
+
+    example_json = json.dumps(template.example, indent=2, ensure_ascii=False)
+
     cv_agent = Agent(
         name="CV Strategist",
         model=model,
         instructions=f"""
 You are an expert CV writer. Rewrite the CV using the original CV, the job description, and the candidate's clarification answers.
+Return the result as a structured JSON object matching the CVData schema exactly.
 
-LANGUAGE RULE: Write ALL content — including every section heading — entirely in {language_name}. No exceptions. Do not mix languages.
+LANGUAGE RULE: Write ALL content — including every section heading, summary, and bullets — entirely in {language_name}. No exceptions. Do not mix languages.
 
-STRICT OUTPUT RULES:
-1. Do NOT include a name, title, email, phone, location, LinkedIn, or portfolio — the header is handled separately.
-2. Start your output DIRECTLY with the summary section heading.
-3. The CV body must contain exactly 4 sections in this order:
-   - A "Professional Summary" equivalent heading in {language_name}
-   - A "Key Skills" equivalent heading in {language_name}
-   - A "Professional Experience" equivalent heading in {language_name}
-   - An "Education" equivalent heading in {language_name}
-   Use ### for all section headings.
-4. No other sections are allowed.
-5. Preserve ALL factual data — never invent technologies, metrics, companies, or roles.
-6. Naturally reinforce terminology from the job description where it truthfully applies.
-7. Experience section format — each job entry MUST follow this structure exactly:
-   **Job Title — Company, Location**
-   MM/YYYY - MM/YYYY (or "Present")
-   - First bullet: responsibility or achievement with at least 28 words describing context and impact.
-   - Second bullet: responsibility or achievement with at least 28 words describing context and impact.
-   - Third bullet: responsibility or achievement with at least 28 words describing context and impact.
-   NEVER write experience as a prose paragraph. ALWAYS use markdown "- " bullet points under each job.
-8. Skills section must use short keyword groups only — no full sentences.
-9. Education section: degree name, institution, and dates only. No impact statements.
+FORMATTING RULES:
+- Dates: {template.date_format}
+- Current job end date: "{template.present_word}"
+- Bullets: {template.bullet_format}
+- Skills: {template.skills_format}
+- job_title field: {template.job_title_format}
+- company field: {template.company_format}
+
+EXAMPLE of a correctly formatted ExperienceEntry:
+{example_json}
+
+STRICT RULES:
+1. Extract the candidate's full name, title, email, phone, location, LinkedIn, and portfolio into the `contact` field.
+   - name: full name only
+   - title: professional title/role
+   - linkedin: the linkedin.com/in/username path only (no https://)
+   - portfolio: personal website domain (NOT LinkedIn)
+   - Use null for any field not found in the original CV
+2. Write a concise professional summary (3–5 sentences) in the `summary` field.
+3. `skills`: flat list of keyword strings only. No sentences. No bullets.
+4. `experience`: list of ExperienceEntry objects. Never write bullets as prose paragraphs.
+5. `education`: degree, institution, start_date, end_date only. No impact statements.
+6. `optimization_report`: 3–5 sentence summary in {language_name} of what was changed and why.
+7. Preserve ALL factual data — never invent technologies, metrics, companies, or roles.
+8. Naturally reinforce terminology from the job description where it truthfully applies.
 """,
-        output_type=CVGenerationResponse,
+        output_type=CVData,
     )
 
     structure_guard = Agent(
         name="Structure Validator",
         model=model,
         instructions=f"""
-Validate that the markdown CV body contains exactly 4 sections:
-1. A professional summary section (heading varies by language: {language_name})
-2. A key skills section
-3. A professional experience section
-4. An education section
+Validate that the CVData object contains all required fields:
+- contact.name is non-empty
+- summary is non-empty
+- skills is a non-empty list
+- experience is a non-empty list, each entry has job_title, company, start_date, end_date, and at least one bullet
+- education is a non-empty list, each entry has degree and institution
+- optimization_report is non-empty
 
-No extra sections allowed.
-Return valid=True only if all four sections are present and no extra sections exist.
+Language: {language_name}
+Return valid=True only if all criteria are met.
 """,
         output_type=StructureCheckOutput,
     )
@@ -247,7 +195,7 @@ Return valid=True only if all four sections are present and no extra sections ex
         name="Integrity Validator",
         model=model,
         instructions="""
-Compare the original CV and the generated CV body.
+Compare the original CV and the generated CVData.
 Verify that:
 - No technologies or tools were invented
 - No metrics or percentages were fabricated
@@ -264,10 +212,9 @@ Return valid=True only if the generated CV faithfully and accurately represents 
         model=model,
         instructions=f"""
 Fix only the listed violations. Preserve all factual information from the original CV.
-Maintain the same language ({language_name}) and section structure throughout.
-Return only the corrected markdown body — do not include a header block.
+Maintain the same language ({language_name}) and return a corrected CVData object.
 """,
-        output_type=CVGenerationResponse,
+        output_type=CVData,
     )
 
     return gap_agent, cv_agent, structure_guard, integrity_guard, corrector
@@ -305,17 +252,15 @@ async def generate_cv(
     api_key: Optional[str] = None,
     language: str = "en",
     provider: str = "openai",
+    template_id: str = "classic",
     max_retries: int = 2,
-) -> CVGenerationResponse:
+) -> CVData:
     client = get_client(api_key, provider)
     set_default_openai_client(client)
 
     model = PROVIDER_CONFIG.get(provider, PROVIDER_CONFIG["openai"])["default_model"]
-    _, cv_agent, _, _, corrector = build_agents(language, model)
-
-    # Extract contact info via LLM and build clean markdown header
-    contact = await extract_contact_info(cv_text, model)
-    header_block = build_markdown_header(contact)
+    template = get_template(template_id, language)
+    _, cv_agent, _, _, corrector = build_agents(language, model, template)
 
     answers_text = "\n".join(
         [f"Q: {a['question']}\nA: {a['answer']}" for a in user_answers]
@@ -327,15 +272,12 @@ async def generate_cv(
         f"Candidate Clarifications:\n{answers_text}"
     )
 
-    last_body = ""
+    last_output: Optional[CVData] = None
     attempt = 0
     while attempt <= max_retries:
         try:
             result = await Runner.run(cv_agent, input_text)
-            last_body = result.final_output.markdown_cv
-            # Prepend clean header to LLM-generated body
-            final_markdown = header_block + last_body
-            return CVGenerationResponse(markdown_cv=final_markdown)
+            return result.final_output  # type: CVData
         except InputGuardrailTripwireTriggered as e:
             attempt += 1
             if attempt > max_retries:
@@ -343,14 +285,14 @@ async def generate_cv(
             correction = await Runner.run(
                 corrector,
                 (
-                    f"Generated CV body:\n{last_body}\n\n"
+                    f"Generated CVData:\n{last_output}\n\n"
                     f"Violations to fix:\n{str(e)}\n\n"
                     f"Original CV:\n{cv_text}"
                 ),
             )
-            last_body = correction.final_output.markdown_cv
+            last_output = correction.final_output
             input_text = (
-                f"Previous version (correct the violations):\n{last_body}\n\n"
+                f"Previous version (correct the violations):\n{last_output}\n\n"
                 f"Original CV:\n{cv_text}\n\n"
                 f"Job Description:\n{job_description}\n\n"
                 f"Candidate Clarifications:\n{answers_text}"

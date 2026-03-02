@@ -1,32 +1,30 @@
+from io import BytesIO
 from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import uvicorn
 import sys
 import os
 
-# Add local directory to path
+# Add local directory to path so relative imports resolve correctly
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from pdf_processor import extract_text_from_pdf, markdown_to_pdf
-from ai_engine import analyze_gaps, generate_cv, GapAnalysisItem, CVGenerationResponse, PROVIDER_CONFIG
+from pdf_processor import extract_text_from_pdf
+from ai_engine import analyze_gaps, generate_cv, GapAnalysisItem, PROVIDER_CONFIG
+from schemas.cv import CVData
+from exporters import export_docx, export_pdf
 
-app = FastAPI(title="SmartCV-Adjuster API", version="1.0.0")
+app = FastAPI(title="SmartCV API", version="2.0.0")
 
 # ============================================================
 # ======================= CORS ===============================
 # ============================================================
 
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,8 +37,14 @@ app.add_middleware(
 async def get_api_key(
     x_model_api_key: Optional[str] = Header(None),
     x_model_provider: Optional[str] = Header(None),
-):
-    return x_model_api_key, x_model_provider
+) -> Tuple[Optional[str], str]:
+    provider = x_model_provider or "openai"
+    if provider not in PROVIDER_CONFIG:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid provider '{provider}'. Valid options: {list(PROVIDER_CONFIG.keys())}"
+        )
+    return x_model_api_key, provider
 
 
 # ============================================================
@@ -50,7 +54,7 @@ async def get_api_key(
 class AnalyzeGapsRequest(BaseModel):
     cv_text: str
     job_description: str
-    language: Optional[str] = "en"
+    language: str = "en"
 
 
 class UserAnswer(BaseModel):
@@ -62,12 +66,14 @@ class GenerateCVRequest(BaseModel):
     cv_text: str
     job_description: str
     user_answers: List[UserAnswer]
-    language: Optional[str] = "en"
+    language: str = "en"
+    template_id: str = "classic"
 
 
-class ExportPDFRequest(BaseModel):
-    markdown_cv: str
-    filename: Optional[str] = "optimized_cv.pdf"
+class ExportRequest(BaseModel):
+    cv_data: CVData
+    language: str = "en"
+    template_id: str = "classic"
 
 
 # ============================================================
@@ -75,12 +81,9 @@ class ExportPDFRequest(BaseModel):
 # ============================================================
 
 @app.post("/extract-text")
-async def extract_text_endpoint(
-    file: UploadFile = File(...)
-):
+async def extract_text_endpoint(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only .pdf files are supported")
-
     try:
         file_bytes = await file.read()
         text = extract_text_from_pdf(file_bytes)
@@ -89,66 +92,33 @@ async def extract_text_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/export-pdf")
-async def export_pdf_endpoint(request: ExportPDFRequest):
-    """
-    Convert a Markdown CV string to an ATS-friendly PDF (real vector text,
-    not a rasterised screenshot). Returns the PDF as a binary file download.
-    """
-    try:
-        pdf_bytes = markdown_to_pdf(request.markdown_cv)
-        safe_filename = request.filename or "optimized_cv.pdf"
-        if not safe_filename.endswith(".pdf"):
-            safe_filename += ".pdf"
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{safe_filename}"',
-                "Content-Length": str(len(pdf_bytes)),
-            },
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
-
-
 @app.post("/analyze-gaps", response_model=List[GapAnalysisItem])
 async def analyze_gaps_endpoint(
     request: AnalyzeGapsRequest,
-    api_auth: tuple = Depends(get_api_key)
+    api_auth: Tuple = Depends(get_api_key),
 ):
     api_key, provider = api_auth
-    provider = provider or "openai"
-
-    if provider not in PROVIDER_CONFIG:
-        raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
-
     try:
         gaps = await analyze_gaps(
             cv_text=request.cv_text,
             job_description=request.job_description,
             api_key=api_key,
             language=request.language,
-            provider=provider
+            provider=provider,
         )
         return gaps
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/generate-cv", response_model=CVGenerationResponse)
+@app.post("/generate-cv", response_model=CVData)
 async def generate_cv_endpoint(
     request: GenerateCVRequest,
-    api_auth: tuple = Depends(get_api_key)
+    api_auth: Tuple = Depends(get_api_key),
 ):
     api_key, provider = api_auth
-    provider = provider or "openai"
-
-    if provider not in PROVIDER_CONFIG:
-        raise HTTPException(status_code=400, detail=f"Invalid provider: {provider}")
-
     try:
         result = await generate_cv(
             cv_text=request.cv_text,
@@ -156,13 +126,48 @@ async def generate_cv_endpoint(
             user_answers=[{"question": a.question, "answer": a.answer} for a in request.user_answers],
             api_key=api_key,
             language=request.language,
-            provider=provider
+            provider=provider,
+            template_id=request.template_id,
         )
         return result
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/export-pdf")
+async def export_pdf_endpoint(request: ExportRequest):
+    """
+    Convert CVData → HTML → WeasyPrint → ATS-friendly vector PDF.
+    Returns a binary PDF file for download.
+    """
+    try:
+        pdf_bytes = export_pdf(request.cv_data, request.template_id, request.language)
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="optimized_cv.pdf"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
+
+@app.post("/export-docx")
+async def export_docx_endpoint(request: ExportRequest):
+    """
+    Convert CVData → python-docx → ATS-friendly .docx file.
+    Returns a Word document for download.
+    """
+    try:
+        docx_bytes = export_docx(request.cv_data, request.template_id)
+        return StreamingResponse(
+            BytesIO(docx_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": 'attachment; filename="optimized_cv.docx"'},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DOCX generation failed: {str(e)}")
 
 
 # ============================================================
