@@ -55,7 +55,7 @@ export function PreviewScreen() {
 
     return (
         <>
-            <div className="max-w-5xl mx-auto space-y-6 animate-slide-up">
+            <div className="w-full space-y-6 animate-slide-up">
                 {/* Sticky action bar */}
                 <div className="sticky top-20 z-30 bg-[#0a0a0f]/90 backdrop-blur-xl border border-white/10 rounded-2xl px-5 py-3 flex items-center justify-between flex-wrap gap-3 shadow-2xl">
                     <div>
@@ -89,10 +89,10 @@ export function PreviewScreen() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Optimization Report */}
-                    <div className="lg:col-span-1">
-                        <div className="glass rounded-2xl overflow-hidden">
+                    <div className="lg:col-span-4 xl:col-span-3">
+                        <div className="glass rounded-2xl overflow-hidden sticky top-40">
                             <button
                                 className="w-full flex items-center justify-between px-5 py-4 border-b border-white/5 hover:bg-white/3 transition-colors"
                                 onClick={() => setReportOpen((v) => !v)}
@@ -108,7 +108,7 @@ export function PreviewScreen() {
                                 )}
                             </button>
                             {reportOpen && (
-                                <div className="px-5 py-4 text-sm text-white/60 leading-relaxed whitespace-pre-wrap">
+                                <div className="px-5 py-4 text-sm text-white/60 leading-relaxed whitespace-pre-wrap max-h-[calc(100vh-300px)] overflow-y-auto">
                                     {generatedCV.optimization_report}
                                 </div>
                             )}
@@ -116,8 +116,8 @@ export function PreviewScreen() {
                     </div>
 
                     {/* CV Preview — editable */}
-                    <div className="lg:col-span-2">
-                        <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/40 ring-1 ring-white/8">
+                    <div className="lg:col-span-8 xl:col-span-9 flex justify-center">
+                        <div className="w-full max-w-[794px] rounded-2xl overflow-hidden shadow-2xl shadow-black/40 ring-1 ring-white/8 h-fit">
                             {/* Document tab bar */}
                             <div className="bg-white/5 border-b border-white/8 px-5 py-2 flex items-center gap-1.5">
                                 <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
@@ -129,14 +129,14 @@ export function PreviewScreen() {
                             {/* CV body — white paper feel */}
                             <div className="bg-white overflow-x-auto">
                                 <div
-                                    className="text-zinc-900 mx-auto"
+                                    className="text-zinc-900 mx-auto w-full"
                                     style={{
                                         fontFamily: 'Inter, "Helvetica Neue", Helvetica, Arial, sans-serif',
-                                        fontSize: '10.5pt',
+                                        fontSize: 'min(10.5pt, 2.5vw)',
                                         lineHeight: 1.5,
-                                        width: '794px',
-                                        minHeight: '1123px',
-                                        padding: '14mm 18mm',
+                                        maxWidth: '794px',
+                                        minHeight: 'min(1123px, 140vw)',
+                                        padding: '5% 7%',
                                         boxSizing: 'border-box',
                                     }}
                                 >

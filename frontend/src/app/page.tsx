@@ -162,7 +162,7 @@ export default function Home() {
             {error && <Toast message={error} onClose={() => setError(null)} />}
 
             {/* Content */}
-            <div className="max-w-5xl mx-auto px-6 sm:px-10 pt-28 pb-16 min-h-screen">
+            <div className={`${stage === 'READY' ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-6 sm:px-10 pt-28 pb-16 min-h-screen transition-all duration-500`}>
                 {renderStage()}
             </div>
 
