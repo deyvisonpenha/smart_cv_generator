@@ -4,13 +4,13 @@ import { ExperienceEntry } from '@/types';
 import { EditableField } from '@/components/ui/EditableField';
 import { useAppStore } from '@/store/useAppStore';
 
-export function CVExperience({ experience }: { experience: ExperienceEntry[] }) {
+export function CVExperience({ experience, title }: { experience: ExperienceEntry[]; title: string }) {
     const { updateExperience, updateBullet, addBullet, removeBullet } = useAppStore();
 
     return (
         <div>
-            <div className="text-[8.5pt] font-bold tracking-widest uppercase text-zinc-400 border-b border-zinc-200 pb-1 mb-3">
-                Professional Experience
+            <div className="text-[8.5pt] font-bold tracking-widest uppercase text-zinc-400 pb-1 mb-2">
+                {title}
             </div>
             <div className="space-y-5">
                 {experience.map((exp, ei) => (

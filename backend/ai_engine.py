@@ -148,10 +148,16 @@ FORMATTING RULES:
 - Dates: {template.date_format}
 - Current job end date: "{template.present_word}"
 - Bullets: {template.bullet_format}
-- Skills: {template.skills_format}
+- Skills: Group skills logically into 3-5 categories (e.g. "Frontend", "Backend", "Tools", "Cloud"). 
+  For each group, list relevant technologies as items. 
+  Ensure categories and items are entirely in {language_name}.
 - job_title field: {template.job_title_format}
 - company field: {template.company_format}
 
+AI WRITING STYLE:
+- Avoid "I", "my", or first-person pronouns.
+- Be punchy, professional, and result-oriented.
+- Focus on how the candidate's skills specifically solve the problems mentioned in the Job Description.
 EXAMPLE of a correctly formatted ExperienceEntry:
 {example_json}
 

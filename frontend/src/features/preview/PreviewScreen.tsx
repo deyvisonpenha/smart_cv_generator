@@ -8,6 +8,7 @@ import { CVSummary } from '@/components/cv/CVSummary';
 import { CVSkills } from '@/components/cv/CVSkills';
 import { CVExperience } from '@/components/cv/CVExperience';
 import { CVEducation } from '@/components/cv/CVEducation';
+import { SECTION_TITLES } from '@/constants/translations';
 
 export function PreviewScreen() {
     const { generatedCV, setStage, reset, language } = useAppStore();
@@ -28,6 +29,8 @@ export function PreviewScreen() {
             </div>
         );
     }
+
+    const titles = SECTION_TITLES[language] || SECTION_TITLES['en'];
 
     const handleExportPdf = async () => {
         setIsExportingPdf(true);
@@ -56,7 +59,7 @@ export function PreviewScreen() {
     return (
         <>
             <div className="w-full space-y-6 animate-slide-up">
-                {/* Sticky action bar */}
+                {/* ... existing header ... */}
                 <div className="sticky top-20 z-30 bg-[#0a0a0f]/90 backdrop-blur-xl border border-white/10 rounded-2xl px-5 py-3 flex items-center justify-between flex-wrap gap-3 shadow-2xl">
                     <div>
                         <h2 className="text-lg font-bold text-white">Your Optimized CV</h2>
@@ -142,10 +145,10 @@ export function PreviewScreen() {
                                 >
                                     <CVHeader contact={generatedCV.contact} />
                                     <div className="space-y-5 mt-5">
-                                        <CVSummary summary={generatedCV.summary} />
-                                        <CVSkills skills={generatedCV.skills} />
-                                        <CVExperience experience={generatedCV.experience} />
-                                        <CVEducation education={generatedCV.education} />
+                                        <CVSummary summary={generatedCV.summary} title={titles.summary} />
+                                        <CVSkills skills={generatedCV.skills} title={titles.skills} />
+                                        <CVExperience experience={generatedCV.experience} title={titles.experience} />
+                                        <CVEducation education={generatedCV.education} title={titles.education} />
                                     </div>
                                 </div>
                             </div>

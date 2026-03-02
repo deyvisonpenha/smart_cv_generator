@@ -7,7 +7,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-from schemas.cv import CVData, ContactInfo, ExperienceEntry, EducationEntry
+from schemas.cv import CVData, ContactInfo, ExperienceEntry, EducationEntry, SkillGroup
+from templates import SECTION_TITLES
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -41,7 +42,6 @@ def _section_heading(doc: Document, title: str):
     p.paragraph_format.space_after = Pt(2)
     run = p.add_run(title.upper())
     _set_run_font(run, 9, bold=True, color=(90, 90, 90))
-    _add_horizontal_rule(doc)
 
 
 # ─── Style Setup ─────────────────────────────────────────────────────────────
@@ -100,22 +100,26 @@ def render_contact(doc: Document, contact: ContactInfo) -> None:
         _set_run_font(contact_run, 9, color=(100, 100, 100))
 
 
-def render_summary(doc: Document, summary: str) -> None:
-    _section_heading(doc, "Professional Summary")
+def render_summary(doc: Document, summary: str, title: str) -> None:
+    _section_heading(doc, title)
     p = doc.add_paragraph(summary)
     p.paragraph_format.space_after = Pt(6)
     p.runs[0].font.size = Pt(10)
 
 
-def render_skills(doc: Document, skills: List[str]) -> None:
-    _section_heading(doc, "Key Skills")
-    p = doc.add_paragraph(", ".join(skills))
-    p.paragraph_format.space_after = Pt(6)
-    p.runs[0].font.size = Pt(10)
+def render_skills(doc: Document, skills: List[SkillGroup], title: str) -> None:
+    _section_heading(doc, title)
+    for group in skills:
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(2)
+        cat_run = p.add_run(f"{group.category}: ")
+        _set_run_font(cat_run, 10, bold=True)
+        items_run = p.add_run(", ".join(group.items))
+        _set_run_font(items_run, 10)
 
 
-def render_experience(doc: Document, experience: List[ExperienceEntry]) -> None:
-    _section_heading(doc, "Professional Experience")
+def render_experience(doc: Document, experience: List[ExperienceEntry], title: str) -> None:
+    _section_heading(doc, title)
     for entry in experience:
         # Title line: bold job_title + normal " — Company, Location"
         p = doc.add_paragraph()
@@ -143,8 +147,8 @@ def render_experience(doc: Document, experience: List[ExperienceEntry]) -> None:
             run.font.size = Pt(10)
 
 
-def render_education(doc: Document, education: List[EducationEntry]) -> None:
-    _section_heading(doc, "Education")
+def render_education(doc: Document, education: List[EducationEntry], title: str) -> None:
+    _section_heading(doc, title)
     for entry in education:
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(4)
@@ -161,15 +165,16 @@ def render_education(doc: Document, education: List[EducationEntry]) -> None:
 
 # ─── Public API ──────────────────────────────────────────────────────────────
 
-def export_docx(cv: CVData, template_id: str = "classic") -> bytes:
+def export_docx(cv: CVData, template_id: str = "classic", language: str = "en") -> bytes:
     """Convert a CVData object to a .docx file and return the raw bytes."""
+    titles = SECTION_TITLES.get(language, SECTION_TITLES["en"])
     doc = Document()
     apply_styles(doc, template_id)
     render_contact(doc, cv.contact)
-    render_summary(doc, cv.summary)
-    render_skills(doc, cv.skills)
-    render_experience(doc, cv.experience)
-    render_education(doc, cv.education)
+    render_summary(doc, cv.summary, titles["summary"])
+    render_skills(doc, cv.skills, titles["skills"])
+    render_experience(doc, cv.experience, titles["experience"])
+    render_education(doc, cv.education, titles["education"])
 
     buffer = BytesIO()
     doc.save(buffer)

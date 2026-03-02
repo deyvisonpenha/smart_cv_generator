@@ -2,13 +2,13 @@
 import { useAppStore } from '@/store/useAppStore';
 import { EditableField } from '@/components/ui/EditableField';
 
-export function CVSummary({ summary }: { summary: string }) {
+export function CVSummary({ summary, title }: { summary: string; title: string }) {
     const { updateSummary } = useAppStore();
 
     return (
         <div>
-            <div className="text-[8.5pt] font-bold tracking-widest uppercase text-zinc-400 border-b border-zinc-200 pb-1 mb-3">
-                Professional Summary
+            <div className="text-[8.5pt] font-bold tracking-widest uppercase text-zinc-400 pb-1 mb-2">
+                {title}
             </div>
             <div className="text-[10.5pt] leading-relaxed text-zinc-800">
                 <EditableField

@@ -3,7 +3,8 @@ from typing import List
 
 from weasyprint import HTML as WeasyprintHTML
 
-from schemas.cv import CVData, ContactInfo, ExperienceEntry, EducationEntry
+from schemas.cv import CVData, ContactInfo, ExperienceEntry, EducationEntry, SkillGroup
+from templates import SECTION_TITLES
 
 # ─── CSS ─────────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,6 @@ body {
 .cv-header {
     text-align: center;
     margin-bottom: 14pt;
-    border-bottom: 1.5pt solid #e0e0e0;
     padding-bottom: 10pt;
 }
 .cv-header h1 {
@@ -59,8 +59,6 @@ body {
     letter-spacing: 0.8pt;
     text-transform: uppercase;
     color: #555;
-    border-bottom: 1pt solid #ddd;
-    padding-bottom: 2pt;
     margin-top: 12pt;
     margin-bottom: 6pt;
 }
@@ -69,7 +67,9 @@ body {
 .summary p { margin-bottom: 0; }
 
 /* ── Skills ── */
-.skills p { color: #333; }
+.skills { color: #333; font-size: 10pt; }
+.skill-group { margin-bottom: 3pt; }
+.skill-category { font-weight: 600; color: #1a1a1a; }
 
 /* ── Experience ── */
 .experience-entry { margin-bottom: 8pt; }
@@ -159,7 +159,14 @@ def _render_education(education: List[EducationEntry]) -> str:
 
 
 def render_to_html(cv: CVData, template_id: str = "classic", language: str = "en") -> str:
-    skills_text = ", ".join(_e(s) for s in cv.skills)
+    titles = SECTION_TITLES.get(language, SECTION_TITLES["en"])
+    
+    skills_html = []
+    for group in cv.skills:
+        items_str = ", ".join(_e(item) for item in group.items)
+        skills_html.append(f'<div class="skill-group"><span class="skill-category">{_e(group.category)}:</span> {items_str}</div>')
+    
+    skills_block = "".join(skills_html)
 
     return f"""<!DOCTYPE html>
 <html lang="{_e(language)}">
@@ -171,16 +178,16 @@ def render_to_html(cv: CVData, template_id: str = "classic", language: str = "en
 
 {_render_contact(cv.contact)}
 
-<div class="section-title">Professional Summary</div>
+<div class="section-title">{_e(titles["summary"])}</div>
 <div class="summary"><p>{_e(cv.summary)}</p></div>
 
-<div class="section-title">Key Skills</div>
-<div class="skills"><p>{skills_text}</p></div>
+<div class="section-title">{_e(titles["skills"])}</div>
+<div class="skills">{skills_block}</div>
 
-<div class="section-title">Professional Experience</div>
+<div class="section-title">{_e(titles["experience"])}</div>
 {_render_experience(cv.experience)}
 
-<div class="section-title">Education</div>
+<div class="section-title">{_e(titles["education"])}</div>
 {_render_education(cv.education)}
 
 </body>

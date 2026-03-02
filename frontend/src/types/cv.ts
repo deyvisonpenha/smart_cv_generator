@@ -2,6 +2,12 @@
 // This file mirrors the Pydantic schema in backend/schemas/cv.py exactly.
 // Any change to either must be reflected in both.
 
+export interface SkillGroup {
+    category: string;
+    items: string[];
+}
+
+
 export interface BulletPoint {
     text: string;
 }
@@ -35,7 +41,7 @@ export interface ContactInfo {
 export interface CVData {
     contact: ContactInfo;
     summary: string;
-    skills: string[];
+    skills: SkillGroup[];
     experience: ExperienceEntry[];
     education: EducationEntry[];
     optimization_report: string;

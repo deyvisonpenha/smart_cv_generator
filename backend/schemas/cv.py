@@ -2,6 +2,11 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class SkillGroup(BaseModel):
+    category: str
+    items: List[str]
+
+
 class BulletPoint(BaseModel):
     text: str
 
@@ -35,7 +40,8 @@ class ContactInfo(BaseModel):
 class CVData(BaseModel):
     contact: ContactInfo
     summary: str
-    skills: List[str]
+    skills: List[SkillGroup]
     experience: List[ExperienceEntry]
     education: List[EducationEntry]
     optimization_report: str
+    match_score: int

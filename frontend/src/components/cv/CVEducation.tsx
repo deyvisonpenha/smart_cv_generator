@@ -3,13 +3,13 @@ import { EducationEntry } from '@/types';
 import { EditableField } from '@/components/ui/EditableField';
 import { useAppStore } from '@/store/useAppStore';
 
-export function CVEducation({ education }: { education: EducationEntry[] }) {
+export function CVEducation({ education, title }: { education: EducationEntry[]; title: string }) {
     // Education entries are typically few and rarely edited; simple per-field updates via store
-    const { generatedCV, setGeneratedCV } = useAppStore() as any;
+    const { generatedCV, setGeneratedCV } = useAppStore();
 
     const updateField = (index: number, field: keyof EducationEntry, value: string) => {
         if (!generatedCV) return;
-        const updated = generatedCV.education.map((edu: EducationEntry, i: number) =>
+        const updated = (generatedCV.education as any).map((edu: EducationEntry, i: number) =>
             i === index ? { ...edu, [field]: value } : edu
         );
         setGeneratedCV({ ...generatedCV, education: updated });
@@ -17,8 +17,8 @@ export function CVEducation({ education }: { education: EducationEntry[] }) {
 
     return (
         <div>
-            <div className="text-[8.5pt] font-bold tracking-widest uppercase text-zinc-400 border-b border-zinc-200 pb-1 mb-3">
-                Education
+            <div className="text-[8.5pt] font-bold tracking-widest uppercase text-zinc-400 pb-1 mb-2">
+                {title}
             </div>
             <div className="space-y-3">
                 {education.map((edu, i) => (

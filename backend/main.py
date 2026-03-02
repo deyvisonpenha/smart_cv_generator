@@ -160,7 +160,7 @@ async def export_docx_endpoint(request: ExportRequest):
     Returns a Word document for download.
     """
     try:
-        docx_bytes = export_docx(request.cv_data, request.template_id)
+        docx_bytes = export_docx(request.cv_data, request.template_id, request.language)
         return StreamingResponse(
             BytesIO(docx_bytes),
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

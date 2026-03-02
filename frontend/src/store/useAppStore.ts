@@ -7,6 +7,7 @@ import {
     ContactInfo,
     ExperienceEntry,
     BulletPoint,
+    SkillGroup,
 } from '@/types';
 
 interface AppState {
@@ -35,7 +36,7 @@ interface AppState {
     // Granular CV edit actions
     updateContact: (patch: Partial<ContactInfo>) => void;
     updateSummary: (summary: string) => void;
-    updateSkills: (skills: string[]) => void;
+    updateSkills: (skills: SkillGroup[]) => void;
     updateExperience: (index: number, patch: Partial<ExperienceEntry>) => void;
     updateBullet: (expIndex: number, bulletIndex: number, text: string) => void;
     addBullet: (expIndex: number) => void;

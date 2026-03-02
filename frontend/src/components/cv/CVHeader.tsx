@@ -8,7 +8,7 @@ export function CVHeader({ contact }: { contact: ContactInfo }) {
     const { updateContact } = useAppStore();
 
     return (
-        <div className="text-center border-b border-zinc-200 pb-4 mb-5">
+        <div className="text-center mb-5">
             {/* Name */}
             <div className="text-[22pt] font-bold leading-tight mb-1">
                 <EditableField
