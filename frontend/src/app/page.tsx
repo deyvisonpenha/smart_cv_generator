@@ -8,7 +8,10 @@ import { UploadScreen } from '@/features/cv-upload/UploadScreen';
 import { InterviewScreen } from '@/features/interview/InterviewScreen';
 import { PreviewScreen } from '@/features/preview/PreviewScreen';
 import { Toast } from '@/components/ui/Toast';
+import { QuickAnalysisModal } from '@/components/QuickAnalysisModal';
 import { AppStage } from '@/types';
+import { useState } from 'react';
+import { Sparkles } from 'lucide-react';
 
 const STEPS: { stage: AppStage[]; label: string }[] = [
     { stage: ['UPLOAD', 'ANALYZING'], label: 'Upload' },
@@ -58,6 +61,8 @@ export default function Home() {
         setLanguage,
         provider
     } = useAppStore();
+
+    const [isQuickAnalysisOpen, setIsQuickAnalysisOpen] = useState(false);
 
     const { getKey, isLocked } = useVault();
 
@@ -153,10 +158,22 @@ export default function Home() {
                             </div>
                         )}
 
+                        <button
+                            onClick={() => setIsQuickAnalysisOpen(true)}
+                            className="hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold text-white btn-premium active:scale-95 transition-all"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Quick Analysis
+                        </button>
                         <VaultSettings />
                     </div>
                 </div>
             </header>
+
+            <QuickAnalysisModal
+                isOpen={isQuickAnalysisOpen}
+                onClose={() => setIsQuickAnalysisOpen(false)}
+            />
 
             {/* Error Toast */}
             {error && <Toast message={error} onClose={() => setError(null)} />}

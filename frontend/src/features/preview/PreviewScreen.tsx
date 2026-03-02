@@ -111,8 +111,35 @@ export function PreviewScreen() {
                                 )}
                             </button>
                             {reportOpen && (
-                                <div className="px-5 py-4 text-sm text-white/60 leading-relaxed whitespace-pre-wrap max-h-[calc(100vh-300px)] overflow-y-auto">
-                                    {generatedCV.optimization_report}
+                                <div className="px-5 py-6 space-y-6 max-h-[calc(100vh-300px)] overflow-y-auto">
+                                    {/* Match Score Display */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-white/50">Alignment Score</span>
+                                            <span className={`text-xl font-black ${generatedCV.match_score > 80 ? 'text-emerald-400' : generatedCV.match_score > 60 ? 'text-yellow-400' : 'text-orange-400'}`}>
+                                                {generatedCV.match_score || 100}%
+                                            </span>
+                                        </div>
+                                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full transition-all duration-1000 ease-out rounded-full ${generatedCV.match_score > 80 ? 'bg-emerald-500' : generatedCV.match_score > 60 ? 'bg-yellow-500' : 'bg-orange-500'}`}
+                                                style={{
+                                                    width: `${generatedCV.match_score}%`,
+                                                    boxShadow: `0 0 15px ${generatedCV.match_score > 80 ? 'rgba(16,185,129,0.3)' : generatedCV.match_score > 60 ? 'rgba(234,179,8,0.3)' : 'rgba(249,115,22,0.3)'}`
+                                                }}
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-white/30 leading-tight">
+                                            This score reflects how well your experience and skills map to the role after our strategic optimization.
+                                        </p>
+                                    </div>
+
+                                    <div className="h-px bg-white/5" />
+
+                                    {/* Detailed Report */}
+                                    <div className="text-sm text-white/60 leading-relaxed whitespace-pre-wrap">
+                                        {generatedCV.optimization_report}
+                                    </div>
                                 </div>
                             )}
                         </div>

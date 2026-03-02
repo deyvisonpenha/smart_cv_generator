@@ -12,7 +12,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from pdf_processor import extract_text_from_pdf
-from ai_engine import analyze_gaps, generate_cv, GapAnalysisItem, PROVIDER_CONFIG
+from ai_engine import analyze_gaps, generate_cv, quick_analyze_cv, GapAnalysisItem, QuickAnalysisResponse, PROVIDER_CONFIG
 from schemas.cv import CVData
 from exporters import export_docx, export_pdf
 
@@ -55,6 +55,12 @@ class AnalyzeGapsRequest(BaseModel):
     cv_text: str
     job_description: str
     language: str = "en"
+
+
+class QuickAnalysisRequest(BaseModel):
+    cv_text: str
+    job_description: str
+    language: str = "pt-br"
 
 
 class UserAnswer(BaseModel):
@@ -107,6 +113,27 @@ async def analyze_gaps_endpoint(
             provider=provider,
         )
         return gaps
+    except RuntimeError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/quick-analyze", response_model=QuickAnalysisResponse)
+async def quick_analyze_endpoint(
+    request: QuickAnalysisRequest,
+    api_auth: Tuple = Depends(get_api_key),
+):
+    api_key, provider = api_auth
+    try:
+        result = await quick_analyze_cv(
+            cv_text=request.cv_text,
+            job_description=request.job_description,
+            api_key=api_key,
+            language=request.language,
+            provider=provider,
+        )
+        return result
     except RuntimeError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:

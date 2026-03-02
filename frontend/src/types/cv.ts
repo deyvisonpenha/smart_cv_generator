@@ -45,4 +45,5 @@ export interface CVData {
     experience: ExperienceEntry[];
     education: EducationEntry[];
     optimization_report: string;
+    match_score: number;
 }

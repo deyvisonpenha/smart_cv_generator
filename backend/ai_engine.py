@@ -47,7 +47,7 @@ PROVIDER_CONFIG = {
     },
     "ollama": {
         "base_url": "http://localhost:11434/v1",
-        "default_model": "llama3.2",
+        "default_model": "gemma:2b",
     },
 }
 
@@ -57,6 +57,13 @@ set_default_openai_api("chat_completions")
 # ============================================================
 # INTERNAL MODELS (used only inside ai_engine)
 # ============================================================
+class QuickAnalysisResponse(BaseModel):
+    match_score: int
+    short_report: str
+    key_strengths: List[str]
+    missing_requirements: List[str]
+
+
 class GapAnalysisItem(BaseModel):
     question: str
     reasoning: str
@@ -153,6 +160,7 @@ FORMATTING RULES:
   Ensure categories and items are entirely in {language_name}.
 - job_title field: {template.job_title_format}
 - company field: {template.company_format}
+- match_score: An integer between 0 and 100 representing how well the candidate aligns with the job after optimization.
 
 AI WRITING STYLE:
 - Avoid "I", "my", or first-person pronouns.
@@ -305,3 +313,36 @@ async def generate_cv(
             )
 
     raise Exception("CV generation failed after maximum retries.")
+# ============================================================
+# QUICK ANALYSIS
+# ============================================================
+async def quick_analyze_cv(
+    cv_text: str,
+    job_description: str,
+    api_key: str,
+    language: str = "pt-br",
+    provider: str = "openai",
+) -> QuickAnalysisResponse:
+    """Analyze CV vs Job Description quickly without full rewrite."""
+    client = get_client(api_key, provider)
+    set_default_openai_client(client)
+    
+    config = PROVIDER_CONFIG.get(provider, PROVIDER_CONFIG["openai"])
+    model = config["default_model"]
+    
+    language_name = SUPPORTED_LANGUAGES.get(language, "English")
+    
+    agent = Agent(
+        name="Quick Analyst",
+        model=model,
+        instructions=f"""
+        You are a hiring manager. Analyze if the CV matches the job description.
+        Provide a match score (0-100), a short summary report, and two lists: key strengths and missing requirements.
+        Output MUST be in {language_name}.
+        """,
+        output_type=QuickAnalysisResponse
+    )
+    
+    input_text = f"CV Context:\n{cv_text}\n\nJob Description:\n{job_description}"
+    result = await Runner.run(agent, input_text)
+    return result.final_output

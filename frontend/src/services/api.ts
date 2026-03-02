@@ -1,4 +1,4 @@
-import { GapAnalysisItem, UserAnswer, CVData } from '@/types';
+import { GapAnalysisItem, UserAnswer, CVData, QuickAnalysisResponse } from '@/types';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -123,5 +123,23 @@ export async function exportDocx(
         `${API_BASE}/export-docx`,
         { cv_data: cvData, language, template_id: templateId },
         'optimized_cv.docx',
+    );
+}
+export async function quickAnalyze(
+    cvText: string,
+    jobDescription: string,
+    apiKey: string | null,
+    provider: string,
+    language: string,
+): Promise<QuickAnalysisResponse> {
+    const headers = {
+        'x-model-provider': provider,
+    } as any;
+    if (apiKey) headers['x-model-api-key'] = apiKey;
+
+    return jsonPost<QuickAnalysisResponse>(
+        `${API_BASE}/quick-analyze`,
+        { cv_text: cvText, job_description: jobDescription, language },
+        headers,
     );
 }
