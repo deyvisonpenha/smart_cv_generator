@@ -11,7 +11,7 @@ function cn(...classes: (string | undefined | false)[]) {
 }
 
 export function UploadScreen() {
-    const { setStage, setCVText, setJobDescription, setError } = useAppStore();
+    const { setStage, setCVText, setJobDescription, setError, language, setLanguage } = useAppStore();
     const { isLocked, setSettingsOpen } = useVault();
     const [isDragging, setIsDragging] = useState(false);
     const [isExtracting, setIsExtracting] = useState(false);
@@ -193,6 +193,34 @@ export function UploadScreen() {
                             value={localJobDescription}
                             onChange={(e) => setLocalJobDescription(e.target.value)}
                         />
+                    </div>
+                </div>
+
+                {/* CV Language */}
+                <div className="space-y-3">
+                    <label className="text-sm font-semibold text-white/80">CV Language</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {[
+                            { id: 'en', label: 'English', flag: '🇺🇸' },
+                            { id: 'pt-br', label: 'Português', flag: '🇧🇷' },
+                            { id: 'es', label: 'Español', flag: '🇪🇸' },
+                            { id: 'fr', label: 'Français', flag: '🇫🇷' },
+                            { id: 'de', label: 'Deutsch', flag: '🇩🇪' },
+                        ].map((lang) => (
+                            <button
+                                key={lang.id}
+                                onClick={() => setLanguage(lang.id)}
+                                className={cn(
+                                    'flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all duration-200',
+                                    language === lang.id
+                                        ? 'bg-indigo-500/10 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.1)] text-white'
+                                        : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:border-white/10'
+                                )}
+                            >
+                                <span className="text-lg">{lang.flag}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider">{lang.label}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
 

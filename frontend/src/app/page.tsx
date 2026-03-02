@@ -7,6 +7,7 @@ import { VaultSettings } from '@/features/vault/VaultSettings';
 import { UploadScreen } from '@/features/cv-upload/UploadScreen';
 import { InterviewScreen } from '@/features/interview/InterviewScreen';
 import { PreviewScreen } from '@/features/preview/PreviewScreen';
+import { Toast } from '@/components/ui/Toast';
 import { AppStage } from '@/types';
 
 const STEPS: { stage: AppStage[]; label: string }[] = [
@@ -130,7 +131,7 @@ export default function Home() {
     return (
         <main className="min-h-screen">
             {/* Header */}
-            <header className="fixed top-0 inset-x-0 z-50 h-16 glass border-b border-white/5">
+            <header className="fixed top-0 inset-x-0 z-50 h-16 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5">
                 <div className="max-w-5xl mx-auto px-6 sm:px-10 h-full flex items-center justify-between">
                     {/* Logo */}
                     <div className="flex items-center gap-3 group cursor-default select-none">
@@ -144,22 +145,6 @@ export default function Home() {
                         <span className="font-bold text-lg text-white tracking-tight">SmartCV</span>
                     </div>
 
-                    {/* Language Selector */}
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-indigo-500/50 transition-colors">
-                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest hidden xs:block">Lang</span>
-                        <select
-                            value={language}
-                            onChange={(e) => setLanguage(e.target.value)}
-                            className="bg-transparent text-sm text-white font-medium outline-none cursor-pointer"
-                        >
-                            <option value="pt-br" className="bg-[#0f1115]">Português</option>
-                            <option value="en" className="bg-[#0f1115]">English</option>
-                            <option value="es" className="bg-[#0f1115]">Español</option>
-                            <option value="fr" className="bg-[#0f1115]">Français</option>
-                            <option value="de" className="bg-[#0f1115]">Deutsch</option>
-                        </select>
-                    </div>
-
                     <div className="flex items-center gap-4">
                         {/* Step indicator (hidden on mobile) */}
                         {stage !== 'UPLOAD' && (
@@ -168,18 +153,13 @@ export default function Home() {
                             </div>
                         )}
 
-                        {/* Error banner */}
-                        {error && (
-                            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-red-500/10 rounded-full border border-red-500/20">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                                <span className="text-xs font-medium text-red-400 max-w-[200px] truncate">{error}</span>
-                            </div>
-                        )}
-
                         <VaultSettings />
                     </div>
                 </div>
             </header>
+
+            {/* Error Toast */}
+            {error && <Toast message={error} onClose={() => setError(null)} />}
 
             {/* Content */}
             <div className="max-w-5xl mx-auto px-6 sm:px-10 pt-28 pb-16 min-h-screen">

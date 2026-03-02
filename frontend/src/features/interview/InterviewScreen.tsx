@@ -33,6 +33,7 @@ export function InterviewScreen() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [showTyping, setShowTyping] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -167,25 +168,41 @@ export function InterviewScreen() {
                 {/* Input bar */}
                 <div className="border-t border-white/5 p-4 bg-white/2">
                     {!isFinished ? (
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                className="flex-1 glass rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/25 outline-none border border-white/8 focus:border-indigo-500/40 focus:bg-indigo-500/5 transition-all"
-                                placeholder="Type your answer…"
-                                value={currentAnswer}
-                                onChange={(e) => setCurrentAnswer(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendAnswer()}
-                                autoFocus
-                                disabled={showTyping}
-                            />
+                        <div className="flex items-end gap-2">
+                            <div className="flex-1 relative">
+                                <textarea
+                                    ref={textareaRef}
+                                    className="w-full glass rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/25 outline-none border border-white/8 focus:border-indigo-500/40 focus:bg-indigo-500/5 transition-all resize-none overflow-y-auto max-h-32"
+                                    placeholder="Type your answer…"
+                                    value={currentAnswer}
+                                    onChange={(e) => {
+                                        setCurrentAnswer(e.target.value);
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = `${e.target.scrollHeight}px`;
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendAnswer();
+                                            if (textareaRef.current) textareaRef.current.style.height = 'auto';
+                                        }
+                                    }}
+                                    autoFocus
+                                    disabled={showTyping}
+                                    rows={1}
+                                />
+                            </div>
                             <button
                                 className={cn(
-                                    'w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0',
+                                    'w-10 h-10 mb-0.5 rounded-xl flex items-center justify-center transition-all duration-200 shrink-0',
                                     currentAnswer.trim() && !showTyping
                                         ? 'btn-primary text-white'
                                         : 'bg-white/5 text-white/20 cursor-not-allowed'
                                 )}
-                                onClick={handleSendAnswer}
+                                onClick={() => {
+                                    handleSendAnswer();
+                                    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+                                }}
                                 disabled={!currentAnswer.trim() || showTyping}
                             >
                                 <Send className="w-4 h-4" />

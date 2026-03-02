@@ -57,7 +57,7 @@ export function PreviewScreen() {
         <>
             <div className="max-w-5xl mx-auto space-y-6 animate-slide-up">
                 {/* Sticky action bar */}
-                <div className="sticky top-20 z-20 glass rounded-2xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
+                <div className="sticky top-20 z-30 bg-[#0a0a0f]/90 backdrop-blur-xl border border-white/10 rounded-2xl px-5 py-3 flex items-center justify-between flex-wrap gap-3 shadow-2xl">
                     <div>
                         <h2 className="text-lg font-bold text-white">Your Optimized CV</h2>
                         <p className="text-xs text-white/30">Click any field to edit inline</p>
