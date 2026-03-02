@@ -66,5 +66,32 @@ export class ApiClient {
             language
         }, apiKey, provider);
     }
-}
 
+    /**
+     * Export a Markdown CV to an ATS-friendly, vector-text PDF via WeasyPrint.
+     * The backend converts markdown → HTML → PDF and streams the binary back.
+     * This method triggers a browser download automatically.
+     */
+    static async exportPdf(markdownCv: string, filename: string = 'optimized_cv.pdf'): Promise<void> {
+        const response = await fetch(`${API_BASE_URL}/export-pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ markdown_cv: markdownCv, filename }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+            throw new Error(errorData.detail || `PDF export failed: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+}

@@ -1,16 +1,12 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Download, RefreshCw, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-
-function cn(...classes: (string | undefined | false)[]) {
-    return classes.filter(Boolean).join(' ');
-}
+import { ApiClient } from '@/lib/api/client';
 
 export function PreviewScreen() {
     const { generatedCV, setStage, reset } = useAppStore();
-    const cvRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
     const [reportOpen, setReportOpen] = useState(true);
 
@@ -29,88 +25,20 @@ export function PreviewScreen() {
     }
 
     const handleExport = async () => {
-        if (!cvRef.current) return;
         setIsExporting(true);
-
-        const safeColorStyle = document.createElement('style');
-        safeColorStyle.id = '__pdf-safe-colors';
-        safeColorStyle.textContent = `
-            .cv-content, .cv-content * {
-                color: #1a1a1a !important;
-                background-color: #ffffff !important;
-                border-color: #d4d4d4 !important;
-                text-decoration-color: #1a1a1a !important;
-                box-shadow: none !important;
-                text-shadow: none !important;
-            }
-            .cv-content h1, .cv-content h2, .cv-content h3,
-            .cv-content h4, .cv-content h5, .cv-content h6 {
-                color: #000000 !important;
-            }
-            .cv-content p, .cv-content li { color: #1a1a1a !important; }
-            .cv-content a { color: #2563eb !important; text-decoration: underline !important; }
-            .cv-content hr { border-color: #e5e7eb !important; border-top: 1px solid #e5e7eb !important; }
-        `;
-        document.head.appendChild(safeColorStyle);
-
-        const opt = {
-            // top/bottom margin in mm — left/right handled by padding inside the element
-            margin: [6, 0, 6, 0] as [number, number, number, number],
-            filename: 'optimized_cv.pdf',
-            image: { type: 'jpeg' as const, quality: 0.98 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                scrollY: 0,
-                windowWidth: 794,
-                logging: false,
-                onclone: (clonedDoc: Document) => {
-                    // Fix unsupported CSS color spaces (oklch, lab, color-mix)
-                    clonedDoc.querySelectorAll('*').forEach((el) => {
-                        const style = (el as HTMLElement).getAttribute('style') || '';
-                        if (
-                            style.includes('lab(') ||
-                            style.includes('oklch(') ||
-                            style.includes('oklab(') ||
-                            style.includes('color-mix(')
-                        ) {
-                            (el as HTMLElement).setAttribute(
-                                'style',
-                                style.replace(/color:[^;]+;/g, 'color:#1a1a1a;')
-                            );
-                        }
-                    });
-
-                    // Tighten padding on the cloned CV for PDF output
-                    const cvEl = clonedDoc.querySelector('.cv-content') as HTMLElement | null;
-                    if (cvEl) {
-                        cvEl.style.padding = '4mm 14mm 6mm 14mm';
-                    }
-                },
-            },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-            pagebreak: {
-                mode: ['avoid-all', 'css', 'legacy'],
-                avoid: ['h1', 'h2', 'h3', 'h4', 'li', 'p'],
-            },
-        };
-
         try {
-            // @ts-ignore
-            const html2pdf = (await import('html2pdf.js')).default;
-            await html2pdf().set(opt).from(cvRef.current).save();
+            await ApiClient.exportPdf(generatedCV.markdown_cv, 'optimized_cv.pdf');
         } catch (e) {
             console.error('PDF Export failed', e);
             alert('Failed to export PDF. Please try again.');
         } finally {
-            safeColorStyle.remove();
             setIsExporting(false);
         }
     };
 
     return (
         <>
-            {/* PDF page-break + spacing styles */}
+            {/* CV preview spacing styles */}
             <style>{`
                 .cv-content h1, .cv-content h2, .cv-content h3, .cv-content h4 {
                     page-break-after: avoid;
@@ -124,12 +52,8 @@ export function PreviewScreen() {
                 .cv-content p {
                     margin-top: 0.3em;
                     margin-bottom: 0.3em;
-                    page-break-inside: avoid;
-                    break-inside: avoid;
                 }
                 .cv-content li {
-                    page-break-inside: avoid;
-                    break-inside: avoid;
                     margin-top: 0.15em;
                     margin-bottom: 0.15em;
                 }
@@ -137,19 +61,12 @@ export function PreviewScreen() {
                     margin-top: 0.3em;
                     margin-bottom: 0.5em;
                 }
-                .cv-content h2 + *, .cv-content h3 + * {
-                    page-break-before: avoid;
-                    break-before: avoid;
-                }
-                /* Tighten prose defaults for denser layout */
                 .cv-content.prose {
                     line-height: 1.5;
                     font-size: 0.82rem;
                 }
                 .cv-content.prose h1 { font-size: 1.5rem; }
                 .cv-content.prose h3 { font-size: 0.95rem; }
-
-                /* Fix bullet alignment — Tailwind prose shifts markers off-baseline */
                 .cv-content ul,
                 .cv-content.prose ul {
                     list-style-type: disc;
@@ -189,7 +106,7 @@ export function PreviewScreen() {
                             className="btn-primary text-white flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
                         >
                             <Download className="w-3.5 h-3.5" />
-                            {isExporting ? 'Exporting…' : 'Download PDF'}
+                            {isExporting ? 'Generating…' : 'Download PDF'}
                         </button>
                     </div>
                 </div>
@@ -232,12 +149,10 @@ export function PreviewScreen() {
                             </div>
                             <div className="overflow-x-auto bg-white min-w-96">
                                 <div
-                                    ref={cvRef}
                                     className="cv-content bg-white text-zinc-900 prose prose-sm prose-zinc max-w-none"
                                     style={{
                                         fontFamily: 'Inter, sans-serif',
                                         width: '794px',
-                                        // Tighter padding for preview — PDF export overrides this via onclone
                                         padding: '10mm 18mm',
                                         boxSizing: 'border-box',
                                         margin: '0 auto',
