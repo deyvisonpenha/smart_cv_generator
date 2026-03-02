@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Loader2, Send, Sparkles } from 'lucide-react';
-import { ApiClient } from '@/lib/api/client';
+import { generateCV } from '@/services/api';
 import { useVault } from '@/hooks/useVault';
 
 function cn(...classes: (string | undefined | false)[]) {
@@ -64,13 +64,13 @@ export function InterviewScreen() {
             setIsGenerating(true);
             const apiKey = getKey(provider);
             if (!apiKey) console.warn("Generating without API Key — falling back to Local LLM (Ollama)");
-            const result = await ApiClient.generateCV(
+            const result = await generateCV(
                 cvText,
                 jobDescription,
                 userAnswers,
                 apiKey,
                 language,
-                provider
+                provider,
             );
             setGeneratedCV(result);
             setStage('READY');

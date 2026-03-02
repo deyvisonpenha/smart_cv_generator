@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useVault } from '@/hooks/useVault';
-import { ApiClient } from '@/lib/api/client';
+import { analyzeGaps } from '@/services/api';
 import { VaultSettings } from '@/features/vault/VaultSettings';
 import { UploadScreen } from '@/features/cv-upload/UploadScreen';
 import { InterviewScreen } from '@/features/interview/InterviewScreen';
@@ -66,7 +66,7 @@ export default function Home() {
                 try {
                     setError(null);
                     const apiKey = getKey(provider);
-                    const gaps = await ApiClient.analyzeGaps(cvText, jobDescription, apiKey, language, provider);
+                    const gaps = await analyzeGaps(cvText, jobDescription, apiKey, language, provider);
                     setGaps(gaps);
                     setStage('INTERVIEW');
                 } catch (e: any) {

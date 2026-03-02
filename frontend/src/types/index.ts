@@ -1,3 +1,4 @@
+// Legacy types (kept for non-CV usage)
 export interface GapAnalysisItem {
     question: string;
     reasoning: string;
@@ -8,17 +9,7 @@ export interface UserAnswer {
     answer: string;
 }
 
-export interface CVGenerationResponse {
-    markdown_cv: string;
-    optimization_report: string;
-}
-
 export type AppStage = 'UPLOAD' | 'ANALYZING' | 'INTERVIEW' | 'GENERATING' | 'READY';
 
-export interface CVState {
-    originalText: string;
-    jobDescription: string;
-    gaps: GapAnalysisItem[];
-    userAnswers: UserAnswer[];
-    generatedCV: CVGenerationResponse | null;
-}
+// Re-export the structured CV types so existing imports work
+export * from './cv';

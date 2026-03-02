@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { ApiClient } from '@/lib/api/client';
+import { extractText } from '@/services/api';
 import { UploadCloud, FileText, Loader2, ArrowRight, Sparkles } from 'lucide-react';
 import { useVault } from '@/hooks/useVault';
 import { LocalLLMWarning } from '../vault/LocalLLMWarning';
@@ -28,7 +28,7 @@ export function UploadScreen() {
             setError(null);
             setIsExtracting(true);
             setFileName(file.name);
-            const { text } = await ApiClient.extractText(file);
+            const { text } = await extractText(file);
             setCVText(text);
             setIsExtracting(false);
         } catch (e: any) {
