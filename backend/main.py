@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
@@ -9,7 +10,7 @@ import os
 # Add local directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from pdf_processor import extract_text_from_pdf
+from pdf_processor import extract_text_from_pdf, markdown_to_pdf
 from ai_engine import analyze_gaps, generate_cv, GapAnalysisItem, CVGenerationResponse, PROVIDER_CONFIG
 
 app = FastAPI(title="SmartCV-Adjuster API", version="1.0.0")
@@ -64,6 +65,11 @@ class GenerateCVRequest(BaseModel):
     language: Optional[str] = "en"
 
 
+class ExportPDFRequest(BaseModel):
+    markdown_cv: str
+    filename: Optional[str] = "optimized_cv.pdf"
+
+
 # ============================================================
 # ====================== ENDPOINTS ===========================
 # ============================================================
@@ -81,6 +87,29 @@ async def extract_text_endpoint(
         return {"text": text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/export-pdf")
+async def export_pdf_endpoint(request: ExportPDFRequest):
+    """
+    Convert a Markdown CV string to an ATS-friendly PDF (real vector text,
+    not a rasterised screenshot). Returns the PDF as a binary file download.
+    """
+    try:
+        pdf_bytes = markdown_to_pdf(request.markdown_cv)
+        safe_filename = request.filename or "optimized_cv.pdf"
+        if not safe_filename.endswith(".pdf"):
+            safe_filename += ".pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_filename}"',
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
 
 @app.post("/analyze-gaps", response_model=List[GapAnalysisItem])

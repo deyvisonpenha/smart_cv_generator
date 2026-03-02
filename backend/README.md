@@ -1,207 +1,178 @@
-# SmartCV-Adjuster Backend
+# SmartCV — Backend
 
-FastAPI backend for **SmartCV-Adjuster**.
-
-This service acts as a stateless intelligent proxy that:
-
-* Extracts text from PDF resumes
-* Performs AI-driven gap analysis between CV and Job Description
-* Generates an optimized CV in Markdown
-* Automatically switches between OpenAI (production) and local Ollama (development)
+FastAPI backend for SmartCV. A stateless, agentic AI service that analyses CVs, runs a strategic interview loop, and exports **ATS-friendly PDFs** with real vector text.
 
 ---
 
 ## 🚀 Core Features
 
-### 🧠 Intelligent AI Provider Fallback
-
-The backend supports two execution modes:
-
-| Environment             | With API Key | Without API Key |
-| ----------------------- | ------------ | --------------- |
-| `development` (default) | OpenAI       | Local Ollama    |
-| `production`            | OpenAI       | ❌ Error         |
-
-Decision flow:
-
-1. If `api_key` is explicitly provided → Use OpenAI
-2. If `ENV=production` and no key → Raise error
-3. Otherwise → Use local Ollama (`http://localhost:11434/v1`)
-
-This enables:
-
-* Secure production configuration
-* No code changes between environments
+| Feature | Detail |
+|---|---|
+| PDF text extraction | PyMuPDF (`fitz`) — reads uploaded CVs |
+| Gap analysis | Multi-agent AI pipeline compares CV vs. job description |
+| CV generation | AI rewrites, validates and self-corrects the CV in Markdown |
+| **PDF export** | WeasyPrint renders Markdown → HTML → real vector PDF (ATS-safe) |
+| Multi-provider AI | OpenAI, Google Gemini, or local Ollama — configurable per request |
 
 ---
 
-### 🤖 Automatic Model Selection
+## 🤖 Agentic Architecture
 
-Model selection is dynamic:
+The AI engine (`ai_engine.py`) uses a five-agent pipeline built on [`openai-agents`](https://github.com/openai/openai-agents-python):
 
-* **Ollama (localhost)** → `llama3:8b`
-* **OpenAI** → `gpt-4o-2024-08-06`
+1. **Gap Analyzer** — identifies mismatches between CV and job description; generates clarification questions.
+2. **CV Strategist** — rewrites the CV from scratch using the original data + user answers.
+3. **Structure Validator** — checks that all required Markdown sections are present.
+4. **Integrity Validator** — verifies no facts were invented or removed.
+5. **Corrector** — automatically patches any violations before returning the result.
 
-This logic is implemented in `get_model_name()` and ensures the correct model is used depending on the provider.
-
-Local development uses:
-
-Llama 3 via Ollama
-
-Production uses OpenAI GPT-4o.
-
----
-
-### 🤖 Agentic Architecture
-
-The AI engine uses a multi-agent system built with a custom `agents` library to ensure high-quality, structured results:
-
-*   **Gap Analyzer**: Compares the CV and Job Description to generate strategic clarification questions.
-*   **CV Strategist**: Rewrites the CV based on original data and user answers, following strict structural rules.
-*   **Structure Validator**: Ensures the generated Markdown contains all required sections.
-*   **Integrity Validator**: Verifies that no factual information was invented or removed.
-*   **Corrector**: Automatically fixes any violations found by the validators.
-
-### 📦 Structured Outputs & Validation
-
-All AI interactions are strongly typed using **Pydantic v2**. Agents are configured with specific `output_type` models, ensuring that the backend always returns valid, structured data to the frontend without manual JSON parsing.
-
-This architecture also allows for:
-*   **Multi-language Support**: Instructions and outputs are dynamically adjusted based on the `language` parameter.
-*   **Self-Correction**: If a generated CV fails validation, the Corrector agent is triggered to fix it before returning the result.
+All outputs are strongly typed with **Pydantic v2**, so the API always returns validated structured data.
 
 ---
 
 ## 🛠 Tech Stack
 
-* **Framework**: FastAPI
-* **Language**: Python 3.9+
-* **AI SDK**: OpenAI Python SDK (`openai`)
-* **Local LLM Runtime**: Ollama
-* **PDF Processing**: PyMuPDF (`fitz`)
-* **Validation**: Pydantic v2
+| Component | Library/Tool |
+|---|---|
+| Web framework | FastAPI |
+| AI SDK | `openai` Python SDK + `openai-agents` |
+| PDF parsing | PyMuPDF (`pymupdf`) |
+| PDF generation | WeasyPrint |
+| HTML from Markdown | `markdown` (python-markdown) |
+| Validation | Pydantic v2 |
+| Server | Uvicorn |
 
 ---
 
-## 📋 Prerequisites
+## ⚠️ System Dependencies (Required)
 
-### For Local Development (Recommended)
+WeasyPrint relies on native C libraries. **You must install them before running `pip install -r requirements.txt`** (or the import will fail at startup).
 
-Install:
-
-Ollama
-
-Then pull the model:
+### macOS (Homebrew)
 
 ```bash
-ollama pull llama3:8b
+brew install pango libffi glib cairo
 ```
 
-Start Ollama:
+### Ubuntu / Debian
 
 ```bash
-ollama serve
+sudo apt-get install -y \
+  libpango-1.0-0 \
+  libpangoft2-1.0-0 \
+  libcairo2 \
+  libglib2.0-0 \
+  libffi-dev \
+  fonts-liberation
 ```
 
----
+### Fedora / RHEL
 
-### For Production
+```bash
+sudo dnf install pango cairo glib2 libffi
+```
 
-* Valid OpenAI API Key
-* `ENV=production`
+> **Verification**: after installing, run:
+> ```bash
+> python -c "from weasyprint import HTML; print('OK')"
+> ```
+> If it prints `OK`, all system libs are correctly found.
 
 ---
 
 ## ⚙️ Installation
 
 ```bash
-git clone <repository_url>
+# 1. Install system dependencies (see above) FIRST
+
+# 2. Create and activate virtualenv
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate      # Windows: venv\Scripts\activate
+
+# 3. Install Python packages
 pip install -r requirements.txt
 ```
 
 ---
 
-## ▶️ Running the Application
-
-Start the development server:
+## ▶️ Running the Server
 
 ```bash
 uvicorn main:app --reload
 ```
 
-API available at:
-
-```
-http://localhost:8000
-```
-
-Swagger UI:
-
-```
-http://localhost:8000/docs
-```
+| URL | Purpose |
+|---|---|
+| `http://localhost:8000` | API base |
+| `http://localhost:8000/docs` | Swagger UI (interactive) |
+| `http://localhost:8000/redoc` | ReDoc |
 
 ---
 
-## 🌍 Environment Configuration
+## 🌍 Environment Variables
 
-### `ENV`
-
-Controls provider behavior.
-
-Possible values:
-
-* `development` (default)
-* `production`
-
-Example:
+| Variable | Default | Description |
+|---|---|---|
+| `ENV` | `development` | Set to `production` to require API keys |
 
 ```bash
+# Production mode — API key required on every request
 export ENV=production
 ```
 
 ---
 
-## 🔐 Authentication (Production Mode)
+## 🤖 AI Providers
 
-When `ENV=production`:
+Provider configuration lives in `PROVIDER_CONFIG` inside `ai_engine.py`:
 
-* An API Key must be provided via request header
-* Otherwise, the system raises:
+| Provider | Base URL | Default Model |
+|---|---|---|
+| `openai` | *(default OpenAI)* | `gpt-4o` |
+| `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` |
+| `ollama` | `http://localhost:11434/v1` | `llama3.2` |
 
+The provider is selected per request via the `X-Model-Provider` header.
+
+### Using Ollama locally
+
+```bash
+# Install Ollama: https://ollama.com
+ollama serve
+ollama pull llama3.2
 ```
-RuntimeError: API Key is required in production (via Header).
-```
+
+No API key needed when using Ollama.
 
 ---
 
 ## 📡 API Endpoints
 
-### 1️⃣ Extract Text
+### `POST /extract-text`
 
-**POST** `/extract-text`
+Upload a PDF and receive its plain text.
 
-Uploads a PDF and returns extracted text.
+**Request**: multipart form — `file` (PDF)
 
-Response:
-
+**Response**:
 ```json
-{
-  "text": "Extracted text content..."
-}
+{ "text": "Extracted text content..." }
 ```
 
 ---
 
-### 2️⃣ Analyze Gaps
+### `POST /analyze-gaps`
 
-**POST** `/analyze-gaps`
+Run gap analysis between a CV and a job description.
 
-Request:
+**Headers**:
+```
+X-Model-API-Key: <your-key>     (not required for Ollama)
+X-Model-Provider: openai | gemini | ollama
+```
 
+**Request body**:
 ```json
 {
   "cv_text": "...",
@@ -210,28 +181,22 @@ Request:
 }
 ```
 
-Response:
-
+**Response**:
 ```json
 [
-  {
-    "id": 1,
-    "question": "...",
-    "context": "..."
-  }
+  { "id": 1, "question": "...", "context": "..." }
 ]
 ```
 
-Validated using `GapAnalysisResponse`.
-
 ---
 
-### 3️⃣ Generate Optimized CV
+### `POST /generate-cv`
 
-**POST** `/generate-cv`
+Generate an optimized CV from CV text, job description and user answers.
 
-Request:
+**Headers**: same as `/analyze-gaps`
 
+**Request body**:
 ```json
 {
   "cv_text": "...",
@@ -243,36 +208,47 @@ Request:
 }
 ```
 
-Response:
-
+**Response**:
 ```json
 {
-  "markdown_cv": "# Candidate Name\n\n## Experience...",
-  "optimization_report": "Summary of improvements made."
+  "markdown_cv": "# Name\n\n## Experience...",
+  "optimization_report": "Summary of changes made."
 }
 ```
 
-Validated using `CVGenerationResponse`.
+---
+
+### `POST /export-pdf`
+
+Convert a Markdown CV to an **ATS-friendly, vector-text PDF** via WeasyPrint.
+
+> This replaces the old `html2pdf.js` approach. The PDF produced contains real selectable text — not a rasterised screenshot — so it is fully readable by ATS systems.
+
+**Request body**:
+```json
+{
+  "markdown_cv": "# Name\n\n## Experience...",
+  "filename": "optimized_cv.pdf"
+}
+```
+
+**Response**: binary PDF file with `Content-Disposition: attachment`.
+
+**Pipeline**:
+```
+Markdown → python-markdown → HTML + CSS → WeasyPrint → PDF bytes
+```
 
 ---
 
 ## 🛡 Error Handling
 
-### Ollama Not Running
-
-If Ollama is not reachable:
-
-```
-Could not connect to Ollama at http://localhost:11434/v1.
-Please ensure Ollama is running (`ollama serve`).
-```
-
-### OpenAI Connection Failure
-
-```
-Could not connect to AI Provider.
-Check your API key and network connection.
-```
+| Scenario | Error |
+|---|---|
+| Ollama not running | `Could not connect to Ollama at http://localhost:11434/v1` |
+| Invalid API key | `401` from the AI provider |
+| `ENV=production` with no key | `RuntimeError: API Key is required in production` |
+| WeasyPrint system libs missing | `OSError: cannot load library 'libgobject-2.0-0'` → install via Homebrew/apt |
 
 ---
 
@@ -280,9 +256,9 @@ Check your API key and network connection.
 
 ```
 backend/
-├── main.py
-├── ai_engine.py
-├── pdf_processor.py
-├── requirements.txt
+├── main.py            # FastAPI app — routes and request/response models
+├── ai_engine.py       # Multi-agent AI pipeline (gap analysis + CV generation)
+├── pdf_processor.py   # PDF text extraction (PyMuPDF) + PDF generation (WeasyPrint)
+├── requirements.txt   # Python dependencies
 └── README.md
 ```
