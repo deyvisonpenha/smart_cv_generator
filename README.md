@@ -48,8 +48,8 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/deyvisonpenha/pdfGenerator.git
-cd pdfGenerator
+git clone https://github.com/deyvisonpenha/smart_cv_generator.git
+cd smart_cv_generator
 ```
 
 ---
