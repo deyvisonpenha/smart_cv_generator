@@ -411,8 +411,8 @@ class Optimization < ApplicationRecord
   def enqueue_optimization_job
     return unless pending?
 
-    # TODO: Implement in Phase 2
-    # OptimizeResumeJob.perform_later(id)
+    OptimizeResumeJob.perform_later(id)
+    Rails.logger.info("Optimization #{id} enqueued for processing")
   end
 
   # Notify status change via ActionCable

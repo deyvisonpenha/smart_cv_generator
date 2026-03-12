@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 Rails.application.routes.draw do
+  # Mount ActionCable for WebSocket connections
+  mount ActionCable.server => '/cable'
+
   # Health check endpoint for load balancers and monitoring
   get "up" => "rails/health#show", as: :rails_health_check
 
@@ -29,20 +32,35 @@ Rails.application.routes.draw do
       end
 
       # Job Descriptions
-      resources :job_descriptions, except: [:new, :edit]
+      resources :job_descriptions, except: [:new, :edit] do
+        member do
+          post :duplicate           # Duplicate a job description
+          get :extract_keywords     # Extract keywords from content
+          get :required_skills      # Get required skills
+          get :analysis            # Full analysis of job description
+        end
+      end
 
       # Optimizations (CV + Job → AI optimization)
       resources :optimizations, only: [:index, :show, :create] do
         member do
           get :status       # Check optimization status
           post :regenerate  # Retry optimization
+          post :cancel      # Cancel optimization
+        end
+        collection do
+          get :stats        # Get optimization statistics
         end
       end
 
       # Interactions (Feature Store for Q&A)
-      resources :interactions, only: [:index, :create, :show] do
+      resources :interactions, except: [:new, :edit] do
         collection do
           get :by_category  # Get interactions by category
+          get :categories   # List all categories with counts
+          get :search       # Search interactions
+          get :stats        # Get interaction statistics
+          get 'popular/:category', action: :popular # Popular interactions by category
         end
       end
 

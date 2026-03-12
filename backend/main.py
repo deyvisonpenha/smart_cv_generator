@@ -1,20 +1,28 @@
+import os
+import sys
 from io import BytesIO
-from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Depends
+from typing import List, Optional, Tuple
+
+import uvicorn
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional, Tuple
-import uvicorn
-import sys
-import os
 
 # Add local directory to path so relative imports resolve correctly
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from pdf_processor import extract_text_from_pdf
-from ai_engine import analyze_gaps, generate_cv, quick_analyze_cv, GapAnalysisItem, QuickAnalysisResponse, PROVIDER_CONFIG
-from schemas.cv import CVData
+from ai_engine import (
+    PROVIDER_CONFIG,
+    GapAnalysisItem,
+    QuickAnalysisResponse,
+    analyze_gaps,
+    generate_cv,
+    quick_analyze_cv,
+)
 from exporters import export_docx, export_pdf
+from pdf_processor import extract_text_from_pdf
+from schemas.cv import CVData
 
 app = FastAPI(title="SmartCV API", version="2.0.0")
 
@@ -34,6 +42,7 @@ app.add_middleware(
 # ================= API KEY DEPENDENCY =======================
 # ============================================================
 
+
 async def get_api_key(
     x_model_api_key: Optional[str] = Header(None),
     x_model_provider: Optional[str] = Header(None),
@@ -42,7 +51,7 @@ async def get_api_key(
     if provider not in PROVIDER_CONFIG:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid provider '{provider}'. Valid options: {list(PROVIDER_CONFIG.keys())}"
+            detail=f"Invalid provider '{provider}'. Valid options: {list(PROVIDER_CONFIG.keys())}",
         )
     return x_model_api_key, provider
 
@@ -50,6 +59,7 @@ async def get_api_key(
 # ============================================================
 # ================= REQUEST MODELS ===========================
 # ============================================================
+
 
 class AnalyzeGapsRequest(BaseModel):
     cv_text: str
@@ -85,6 +95,7 @@ class ExportRequest(BaseModel):
 # ============================================================
 # ====================== ENDPOINTS ===========================
 # ============================================================
+
 
 @app.post("/extract-text")
 async def extract_text_endpoint(file: UploadFile = File(...)):
@@ -150,7 +161,10 @@ async def generate_cv_endpoint(
         result = await generate_cv(
             cv_text=request.cv_text,
             job_description=request.job_description,
-            user_answers=[{"question": a.question, "answer": a.answer} for a in request.user_answers],
+            user_answers=[
+                {"question": a.question, "answer": a.answer}
+                for a in request.user_answers
+            ],
             api_key=api_key,
             language=request.language,
             provider=provider,
@@ -195,6 +209,36 @@ async def export_docx_endpoint(request: ExportRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DOCX generation failed: {str(e)}")
+
+
+# ============================================================
+# =================== HEALTH & INFO ==========================
+# ============================================================
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for orchestrator"""
+    return {"status": "ok", "service": "SmartCV AI Engine"}
+
+
+@app.get("/api/info")
+async def api_info():
+    """Get API information"""
+    return {
+        "name": "SmartCV AI Engine",
+        "version": "2.0.0",
+        "endpoints": [
+            "/extract-text",
+            "/analyze-gaps",
+            "/quick-analyze",
+            "/generate-cv",
+            "/export-pdf",
+            "/export-docx",
+            "/health",
+            "/api/info",
+        ],
+    }
 
 
 # ============================================================
