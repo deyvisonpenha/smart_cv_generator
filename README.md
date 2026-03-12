@@ -127,3 +127,28 @@ Open-source and open to contributions. Feel free to open issues, submit PRs, or 
 ## 📄 License
 
 MIT — use and adapt freely.
+
+
+---
+Agora, execute os comandos de inicialização:
+
+Abra o terminal na raiz do projeto (smart_cv_generator) e rode:
+
+# 1. Construir e subir o banco e o Redis (fundações)
+docker-compose up -d db redis
+
+# 2. Criar e migrar o banco de dados no Rails
+docker-compose run api rails db:create db:migrate
+
+# 3. Gerar os seus Models (conforme discutimos)
+docker-compose run api rails generate devise User
+docker-compose run api rails generate model CV user:references original_text:text optimized_data:jsonb language:string slug:string:index
+docker-compose run api rails generate model JobDescription user:references title:string content:text company_name:string
+docker-compose run api rails generate model Optimization user:references cv:references status:string match_score:integer report:text
+docker-compose run api rails generate model Interaction user:references question:text answer:text category:string
+
+# 4. Rodar as migrações finais
+docker-compose run api rails db:migrate
+
+# 5. Subir o sistema completo
+docker-compose up

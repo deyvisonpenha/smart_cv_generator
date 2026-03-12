@@ -32,8 +32,23 @@ gem "thruster", require: false
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 gem "image_processing", "~> 1.2"
 
+# Autenticação e Segurança
+gem "devise"
+gem "devise-jwt" # Para autenticação via Token (essencial para React)
+gem "jwt" # For manual JWT token generation and verification
+
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
-# gem "rack-cors"
+gem "rack-cors"
+
+# Background Jobs e Redis
+gem "sidekiq"
+gem "redis"
+
+# Integração com o serviço Python
+gem "faraday" # Cliente HTTP robusto para chamar o FastAPI
+
+# Utilitários
+gem "dotenv-rails", groups: [:development, :test] # Para gerenciar chaves de API e envs
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
