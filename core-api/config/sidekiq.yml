@@ -1,0 +1,34 @@
+# Sidekiq Configuration for SmartCV
+
+# Concurrency: number of threads processing jobs simultaneously
+:concurrency: 5
+
+# Timeout: maximum time a job can run before being killed (seconds)
+:timeout: 30
+
+# Verbose logging
+:verbose: true
+
+# Queues and their priorities (higher weight = higher priority)
+:queues:
+  - [critical, 10]
+  - [default, 5]
+  - [low, 1]
+
+# Scheduled jobs (using sidekiq-cron or sidekiq-scheduler)
+# Uncomment when sidekiq-scheduler gem is added
+# :schedule:
+#   cleanup_stale_optimizations:
+#     cron: '*/5 * * * *'  # Every 5 minutes
+#     class: CleanupStaleOptimizationsJob
+#     queue: low
+
+# Production-specific settings
+:production:
+  :concurrency: 10
+  :timeout: 60
+
+# Development-specific settings
+:development:
+  :concurrency: 3
+  :timeout: 30
