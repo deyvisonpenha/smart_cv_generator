@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  user: one
+  cv: one
+  job_description: one
+  status: MyString
+  match_score: 1
+  report: 
+
+two:
+  user: two
+  cv: two
+  job_description: two
+  status: MyString
+  match_score: 1
+  report: 

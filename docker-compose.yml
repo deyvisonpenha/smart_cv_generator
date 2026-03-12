@@ -1,0 +1,69 @@
+services:
+  # Banco de Dados
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # Background Jobs Store
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+  # Orquestrador (Rails)
+  api:
+    build: 
+      context: ./core-api
+      target: development
+    command: bundle exec rails s -p 3000 -b '0.0.0.0'
+    volumes:
+      - ./core-api:/app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:password@db:5432/smart_cv_dev
+      REDIS_URL: redis://redis:6379/1
+      PYTHON_SERVICE_URL: http://ai_engine:8000
+    depends_on:
+      - db
+      - redis
+
+  # Background Workers (Sidekiq)
+  worker:
+    build:
+      context: ./core-api
+      target: development
+    command: bundle exec sidekiq
+    volumes:
+      - ./core-api:/app
+    environment:
+      DATABASE_URL: postgres://postgres:password@db:5432/smart_cv_dev
+      REDIS_URL: redis://redis:6379/1
+      PYTHON_SERVICE_URL: http://ai_engine:8000
+    depends_on:
+      - db
+      - redis
+
+  # AI Engine (Python)
+  ai_engine:
+    build:
+      context: ./backend
+      target: development
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./backend:/app
+
+volumes:
+  postgres_data:
+  redis_data:
