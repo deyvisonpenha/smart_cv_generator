@@ -1,0 +1,19 @@
+# Environment secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# Generated docs (not source of truth)
+ACTIONCABLE_INTEGRATION.md
+FRONTEND_INTEGRATION.md
+PHASE2_COMPLETE.md
+PHASE2_GUIDE.md
+PHASE3_GUIDE.md
+PHASE3_SUMMARY.md
+PROGRESS.md
+README_PHASE2.md
+QUICKSTART.md
+ARCHITECTURE.md

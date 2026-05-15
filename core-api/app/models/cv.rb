@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Cv < ApplicationRecord
+  has_neighbors :embedding
+
   # ============================================
   # ASSOCIATIONS
   # ============================================
@@ -12,6 +14,8 @@ class Cv < ApplicationRecord
   # ============================================
   before_validation :generate_slug, on: :create
   before_validation :ensure_optimized_data_is_hash
+  after_create_commit :generate_embedding_async
+  after_update_commit :generate_embedding_async, if: :saved_change_to_original_text?
 
   # ============================================
   # VALIDATIONS
@@ -193,6 +197,10 @@ class Cv < ApplicationRecord
   end
 
   private
+
+  def generate_embedding_async
+    GenerateEmbeddingJob.perform_later('Cv', id)
+  end
 
   # Generate a unique slug for the CV
   def generate_slug

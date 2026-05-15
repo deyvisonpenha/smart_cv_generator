@@ -47,6 +47,9 @@ gem "redis"
 # Integração com o serviço Python
 gem "faraday" # Cliente HTTP robusto para chamar o FastAPI
 
+# Semantic search with pgvector
+gem "neighbor"
+
 # Utilitários
 gem "dotenv-rails", groups: [:development, :test] # Para gerenciar chaves de API e envs
 

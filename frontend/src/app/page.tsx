@@ -64,7 +64,7 @@ export default function Home() {
 
     const [isQuickAnalysisOpen, setIsQuickAnalysisOpen] = useState(false);
 
-    const { getKey, isLocked } = useVault();
+    const { getKey, isReady } = useVault();
 
     useEffect(() => {
         const runAnalysis = async () => {
@@ -82,7 +82,7 @@ export default function Home() {
             }
         };
         runAnalysis();
-    }, [stage, cvText, jobDescription, getKey, isLocked, setStage, setGaps, setError, language]);
+    }, [stage, cvText, jobDescription, getKey, isReady, setStage, setGaps, setError, language]);
 
     const renderStage = () => {
         switch (stage) {

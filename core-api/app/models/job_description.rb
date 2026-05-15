@@ -1,11 +1,19 @@
 # frozen_string_literal: true
 
 class JobDescription < ApplicationRecord
+  has_neighbors :embedding
+
   # ============================================
   # ASSOCIATIONS
   # ============================================
   belongs_to :user
   has_many :optimizations, dependent: :destroy
+
+  # ============================================
+  # CALLBACKS
+  # ============================================
+  after_create_commit :generate_embedding_async
+  after_update_commit :generate_embedding_async, if: :saved_change_to_content?
 
   # ============================================
   # VALIDATIONS
@@ -162,6 +170,14 @@ class JobDescription < ApplicationRecord
       }
     }
   end
+
+  private
+
+  def generate_embedding_async
+    GenerateEmbeddingJob.perform_later('JobDescription', id)
+  end
+
+  public
 
   # Search in title and content
   def self.search(query)

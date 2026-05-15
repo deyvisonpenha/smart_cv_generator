@@ -64,21 +64,14 @@ class User < ApplicationRecord
   end
 
   # Rate limiting: Check if user can create a new optimization
-  # Free tier: 5 optimizations per month
-  # Pro tier: unlimited
+  # Phase 4: Unlimited for all tiers — limits will be re-introduced in Phase 5 (Stripe)
   def can_create_optimization?
-    return true if has_pro_access?
-
-    optimizations_this_month = optimizations.where('created_at >= ?', 1.month.ago).count
-    optimizations_this_month < 5
+    true
   end
 
-  # Get remaining optimizations for free tier users
+  # Get remaining optimizations (unlimited in Phase 4)
   def remaining_optimizations
-    return Float::INFINITY if has_pro_access?
-
-    used = optimizations.where('created_at >= ?', 1.month.ago).count
-    [5 - used, 0].max
+    Float::INFINITY
   end
 
   # Human-readable subscription display

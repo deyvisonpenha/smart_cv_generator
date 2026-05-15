@@ -12,7 +12,7 @@ function cn(...classes: (string | undefined | false)[]) {
 
 export function UploadScreen() {
     const { setStage, setCVText, setJobDescription, setError, language, setLanguage } = useAppStore();
-    const { isLocked, setSettingsOpen } = useVault();
+    const { isReady, setSettingsOpen } = useVault();
     const [isDragging, setIsDragging] = useState(false);
     const [isExtracting, setIsExtracting] = useState(false);
     const [fileName, setFileName] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export function UploadScreen() {
         if (!fileName) { setError('Please upload a CV first.'); return; }
         if (!localJobDescription.trim()) { setError('Please enter a job description.'); return; }
 
-        if (isLocked) {
+        if (!isReady) {
             setShowWarning(true);
         } else {
             startAnalysisFlow();

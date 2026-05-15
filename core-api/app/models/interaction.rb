@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Interaction < ApplicationRecord
+  has_neighbors :embedding
+
   # ============================================
   # ASSOCIATIONS
   # ============================================
@@ -36,6 +38,8 @@ class Interaction < ApplicationRecord
   # ============================================
   before_validation :normalize_question
   before_validation :set_default_category, on: :create
+  after_create_commit :generate_embedding_async
+  after_update_commit :generate_embedding_async, if: :saved_change_to_answer?
 
   # ============================================
   # SCOPES
@@ -230,6 +234,10 @@ class Interaction < ApplicationRecord
   # ============================================
 
   private
+
+  def generate_embedding_async
+    GenerateEmbeddingJob.perform_later('Interaction', id)
+  end
 
   # Normalize question text for comparison
   def normalize_question

@@ -67,6 +67,14 @@ Rails.application.routes.draw do
       # Dashboard - aggregated stats
       get 'dashboard', to: 'dashboard#index'
       get 'dashboard/stats', to: 'dashboard#stats'
+
+      # Phase 4: Semantic Search & RAG
+      namespace :semantic do
+        post :similar_cvs
+        post :similar_jobs
+        post :suggest_answer   # RAG: suggest answers from past interactions
+        post :reindex          # Re-generate all embeddings for current user
+      end
     end
   end
 

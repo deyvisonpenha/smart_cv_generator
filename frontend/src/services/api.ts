@@ -1,6 +1,6 @@
 import { GapAnalysisItem, UserAnswer, CVData, QuickAnalysisResponse } from '@/types';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:8000';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

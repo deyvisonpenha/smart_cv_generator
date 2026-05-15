@@ -351,6 +351,41 @@ class ApiClient {
   async searchInteractions(query: string): Promise<any> {
     return this.request(`/interactions/search?q=${encodeURIComponent(query)}`);
   }
+
+  // Phase 4: Semantic Search & RAG
+  async similarCVs(text: string, limit = 5): Promise<{ results: CV[] }> {
+    return this.request('/semantic/similar_cvs', {
+      method: 'POST',
+      body: JSON.stringify({ text, limit }),
+    });
+  }
+
+  async similarJobs(text: string, limit = 5): Promise<{ results: JobDescription[] }> {
+    return this.request('/semantic/similar_jobs', {
+      method: 'POST',
+      body: JSON.stringify({ text, limit }),
+    });
+  }
+
+  async suggestAnswer(question: string, limit = 5): Promise<{
+    results: Array<{
+      id: number;
+      question: string;
+      answer: string;
+      category: string;
+      category_display: string;
+      used_count: number;
+    }>;
+  }> {
+    return this.request('/semantic/suggest_answer', {
+      method: 'POST',
+      body: JSON.stringify({ question, limit }),
+    });
+  }
+
+  async reindexEmbeddings(): Promise<{ message: string; jobs_enqueued: number }> {
+    return this.request('/semantic/reindex', { method: 'POST' });
+  }
 }
 
 // Export singleton instance

@@ -1,49 +1,77 @@
-# SmartCV 🚀
+# SmartCV
 
-**SmartCV** is an open-source AI-powered tool that helps you tailor your CV to specific job descriptions. It identifies skill gaps, asks targeted questions to fill them, and generates a professionally optimized, **ATS-compatible CV** — exported as a real vector-text PDF (not a screenshot).
+**SmartCV** is an open-source, AI-powered platform that tailors your CV to any job description. It identifies skill gaps, asks targeted questions to fill them, and generates a professionally optimized, **ATS-compatible PDF** — exported as real vector text (not a screenshot), fully readable by applicant tracking systems.
 
----
-
-## ✨ How it Works
-
-1. **Analyze** — Upload your CV (PDF) and paste the job description you're targeting.
-2. **Diagnose** — The AI engine identifies gaps between your profile and the role requirements.
-3. **Interview** — The system asks 4–6 strategic questions based on those gaps.
-4. **Optimize** — Using your original CV and answers, AI rewrites and repositions your CV in Markdown.
-5. **Export** — Download a polished, **ATS-friendly PDF** with real, selectable text generated server-side via WeasyPrint.
+[![Run on Replit](https://replit.com/badge/github/deyvisonpenha/smart_cv_generator)](https://replit.com/github/deyvisonpenha/smart_cv_generator)
 
 ---
 
-## 🛠 Tech Stack
+![SmartCV Dashboard](./homepage.png)
+
+---
+
+## How It Works
+
+| Step | What happens |
+|------|-------------|
+| **1. Upload** | Provide your current CV (PDF) and paste the target job description |
+| **2. Diagnose** | The AI engine maps your profile against the role requirements and identifies gaps |
+| **3. Interview** | The system asks 4–6 strategic follow-up questions to surface missing context |
+| **4. Optimize** | Your CV is rewritten in Markdown, repositioned to match the role |
+| **5. Export** | Download a polished, ATS-friendly PDF rendered server-side via WeasyPrint |
+
+---
+
+## Architecture
+
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────────┐
+│  Next.js    │────▶│  Rails API   │────▶│  FastAPI Engine  │
+│  Frontend   │     │  (core-api)  │     │  (AI + PDF)      │
+│  :3001      │     │  :3000       │     │  :8000           │
+└─────────────┘     └──────┬───────┘     └──────────────────┘
+                           │
+                  ┌────────┴────────┐
+                  │                 │
+             ┌────▼────┐     ┌──────▼──────┐
+             │Postgres │     │    Redis    │
+             │+pgvector│     │  + Sidekiq  │
+             └─────────┘     └─────────────┘
+```
+
+## Tech Stack
 
 ### Frontend
-- **Framework**: Next.js 15 (App Router)
-- **Styling**: Tailwind CSS v4 & Lucide Icons
-- **State Management**: Zustand
-- **Security**: Client-side AES-GCM encryption for API keys (Web Crypto API)
+| | |
+|---|---|
+| Framework | Next.js 15 (App Router) |
+| Styling | Tailwind CSS v4 + Lucide Icons |
+| State | Zustand |
+| Security | Client-side AES-GCM encryption for API keys (Web Crypto API) |
 
-### Backend
-- **Framework**: FastAPI (Python)
-- **AI Integration**: OpenAI, Google Gemini, or local [Ollama](https://ollama.com/)
-- **PDF Parsing**: PyMuPDF (`fitz`)
-- **PDF Generation**: WeasyPrint (server-side, vector text — ATS-safe)
-- **Validation**: Pydantic v2
+### Core API
+| | |
+|---|---|
+| Framework | Ruby on Rails 8 (API mode) |
+| Auth | Devise + JWT |
+| Background Jobs | Sidekiq |
+| Database | PostgreSQL 15 + pgvector (semantic search) |
+| Cache / Queue | Redis |
+
+### AI Engine
+| | |
+|---|---|
+| Framework | FastAPI (Python 3.11+) |
+| AI Providers | OpenAI, Google Gemini, or local Ollama |
+| PDF Parsing | PyMuPDF (`fitz`) |
+| PDF Generation | WeasyPrint — server-side vector text, ATS-safe |
+| Validation | Pydantic v2 |
 
 ---
 
-## 🚀 Getting Started
+## Quick Start (Docker)
 
-### Prerequisites
-
-| Tool | Version | Notes |
-|---|---|---|
-| Node.js | 18+ | For the frontend |
-| Python | 3.11+ | For the backend |
-| Homebrew | Any | macOS only — needed for WeasyPrint system libs |
-
-> **Linux users**: install the equivalent system packages instead of Homebrew (see [backend README](./backend/README.md)).
-
----
+The recommended way to run SmartCV locally is with Docker Compose. All services — database, cache, API, AI engine, and frontend — start with a single command.
 
 ### 1. Clone the repository
 
@@ -52,103 +80,118 @@ git clone https://github.com/deyvisonpenha/smart_cv_generator.git
 cd smart_cv_generator
 ```
 
+### 2. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in the required values:
+
+| Variable | Description |
+|---|---|
+| `POSTGRES_PASSWORD` | PostgreSQL password |
+| `REDIS_PASSWORD` | Redis password |
+| `SECRET_KEY_BASE` | Rails secret — generate with `openssl rand -hex 64` |
+| `OPENAI_API_KEY` | Your OpenAI API key (`sk-…`) |
+
+All other values can stay as-is for local development.
+
+### 3. Start all services
+
+```bash
+docker compose up --build
+```
+
+The first run builds all images and automatically runs database migrations before the API starts.
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3001 |
+| Rails API | http://localhost:3000 |
+| AI Engine | http://localhost:8000 |
+
 ---
 
-### 2. Set up the Backend
+## Manual Setup (without Docker)
 
-#### macOS — install system dependencies (required for WeasyPrint)
+<details>
+<summary>Expand for native installation instructions</summary>
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Node.js | 18+ |
+| Ruby | 3.2+ |
+| Python | 3.11+ |
+| PostgreSQL | 15+ with pgvector extension |
+| Redis | 7+ |
+
+### Backend — AI Engine
 
 ```bash
+# macOS: install WeasyPrint system dependencies
 brew install pango libffi glib cairo
-```
 
-> These are native C libraries that WeasyPrint uses to render HTML → PDF. Without them the backend will fail to start.
-
-#### Install Python dependencies
-
-```bash
 cd backend
 python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-#### Start the server
-
-```bash
 uvicorn main:app --reload
 # → http://localhost:8000
 ```
 
----
-
-### 3. Set up the Frontend
+### Backend — Rails API
 
 ```bash
-cd ../frontend
-npm install
-npm run dev
+cd core-api
+bundle install
+
+# Set environment variables (or create a .env file)
+export DATABASE_URL=postgres://postgres:password@localhost:5432/smart_cv_dev
+export REDIS_URL=redis://:password@localhost:6379/1
+export SECRET_KEY_BASE=$(openssl rand -hex 64)
+
+rails db:create db:migrate
+rails server
 # → http://localhost:3000
 ```
 
----
-
-### 4. Choose an AI Provider
-
-When the app opens, configure your provider in the **Security Vault**:
-
-| Provider | What you need |
-|---|---|
-| **OpenAI** | An `sk-…` API key |
-| **Google Gemini** | A Gemini API key from [Google AI Studio](https://aistudio.google.com) |
-| **Ollama (local)** | Ollama running locally (`ollama serve`) |
-
-For Ollama, pull a model first:
+### Frontend
 
 ```bash
-ollama pull llama3.2
+cd frontend
+npm install
+npm run dev
+# → http://localhost:3001
 ```
 
----
-
-## 🛡 Security & Privacy
-
-- **Stateless Backend** — We never store your CV or personal data.
-- **Encrypted Vault** — API keys are AES-GCM encrypted with your master password and stored only in your browser's `localStorage`. They are never persisted on the server.
+</details>
 
 ---
 
-## 🤝 Contributing
+## Security & Privacy
 
-Open-source and open to contributions. Feel free to open issues, submit PRs, or suggest features!
+- **Stateless AI Engine** — your CV content and personal data are never persisted in the AI service.
+- **Encrypted Vault** — API keys are AES-GCM encrypted with your master password and stored only in your browser's `localStorage`. They are never sent to or stored on the server.
+- **JWT Authentication** — all API endpoints are protected with short-lived JWT tokens.
+
+---
+
+## Contributing
+
+Contributions are welcome. Feel free to open an issue, submit a pull request, or suggest a feature.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/my-feature`)
+3. Commit your changes (`git commit -m 'feat: add my feature'`)
+4. Push to the branch (`git push origin feat/my-feature`)
+5. Open a Pull Request
 
 ---
 
-## 📄 License
+## License
 
-MIT — use and adapt freely.
-
-
----
-Agora, execute os comandos de inicialização:
-
-Abra o terminal na raiz do projeto (smart_cv_generator) e rode:
-
-# 1. Construir e subir o banco e o Redis (fundações)
-docker-compose up -d db redis
-
-# 2. Criar e migrar o banco de dados no Rails
-docker-compose run api rails db:create db:migrate
-
-# 3. Gerar os seus Models (conforme discutimos)
-docker-compose run api rails generate devise User
-docker-compose run api rails generate model CV user:references original_text:text optimized_data:jsonb language:string slug:string:index
-docker-compose run api rails generate model JobDescription user:references title:string content:text company_name:string
-docker-compose run api rails generate model Optimization user:references cv:references status:string match_score:integer report:text
-docker-compose run api rails generate model Interaction user:references question:text answer:text category:string
-
-# 4. Rodar as migrações finais
-docker-compose run api rails db:migrate
-
-# 5. Subir o sistema completo
-docker-compose up
+[MIT](./LICENSE) — free to use, modify, and distribute.

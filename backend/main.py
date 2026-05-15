@@ -30,9 +30,12 @@ app = FastAPI(title="SmartCV API", version="2.0.0")
 # ======================= CORS ===============================
 # ============================================================
 
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3001,http://127.0.0.1:3001")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -90,6 +93,10 @@ class ExportRequest(BaseModel):
     cv_data: CVData
     language: str = "en"
     template_id: str = "classic"
+
+
+class EmbedRequest(BaseModel):
+    text: str
 
 
 # ============================================================
@@ -214,6 +221,35 @@ async def export_docx_endpoint(request: ExportRequest):
 # ============================================================
 # =================== HEALTH & INFO ==========================
 # ============================================================
+
+
+@app.post("/embed")
+async def embed_endpoint(
+    request: EmbedRequest,
+    api_auth: Tuple = Depends(get_api_key),
+):
+    """
+    Generate a 1536-dim embedding vector for semantic search.
+    Uses OpenAI text-embedding-3-small.
+    Returns {"embedding": null} when no API key is available so callers
+    can degrade gracefully (semantic search simply returns no results).
+    """
+    api_key, provider = api_auth
+    # Never fall back to the server env var — callers must supply their own key.
+    # This prevents unauthenticated external requests from consuming server credits.
+    if not api_key or provider != "openai":
+        return {"embedding": None, "reason": "embedding_unavailable"}
+
+    try:
+        from openai import AsyncOpenAI as _OAI
+        client = _OAI(api_key=api_key)
+        response = await client.embeddings.create(
+            model="text-embedding-3-small",
+            input=request.text[:8000],
+        )
+        return {"embedding": response.data[0].embedding}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Embedding failed: {str(e)}")
 
 
 @app.get("/health")
